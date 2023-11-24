@@ -16,7 +16,6 @@ def create_csv_meteo_consumption():
         end_date_meteo = datetime.strptime(end_date_meteo, '%Y-%m-%d').strftime('%Y-%m-%d')
 
         meteo_data = historical_meteo_data(start_date_meteo, end_date_meteo)
-
         combined_df = pd.merge(consumption['daily'][name], meteo_data, on='ID', how='left')
         combined_df.to_csv(f'dataset_result/meteo_consumption/meteo_per_consumption_{str(name)}.csv', index=True)
 

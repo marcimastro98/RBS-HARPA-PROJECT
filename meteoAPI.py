@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import openmeteo_requests
 import requests_cache
 from retry_requests import retry
@@ -12,6 +14,7 @@ def historical_meteo_data(start_date, end_date):
     # Make sure all required weather variables are listed here
     # The order of variables in hourly or daily is important to assign them correctly below
     url = "https://archive-api.open-meteo.com/v1/archive"
+
     params = {
         "latitude": 41.954706,
         "longitude": 12.486289,
@@ -19,7 +22,8 @@ def historical_meteo_data(start_date, end_date):
         "end_date": end_date,
         "daily": ["temperature_2m_max", "temperature_2m_min", "temperature_2m_mean", "sunrise", "sunset",
                   "daylight_duration", "precipitation_sum", "rain_sum", "snowfall_sum", "precipitation_hours"],
-        "timezone": "auto"
+        "timezone": "Europe/Rome",
+        "timezone_abbreviation": "CEST"
     }
     responses = openmeteo.weather_api(url, params=params)
 
@@ -41,21 +45,24 @@ def historical_meteo_data(start_date, end_date):
     daily_snowfall_sum = daily.Variables(8).ValuesAsNumpy()
     daily_precipitation_hours = daily.Variables(9).ValuesAsNumpy()
 
+    start = pd.to_datetime(daily.Time(), unit="s").normalize()
+    if start.day != 1:
+        start += pd.Timedelta(days=1)
     daily_data = {"date": pd.date_range(
-        start=pd.to_datetime(daily.Time(), unit="s"),
+        start=start,
         end=pd.to_datetime(daily.TimeEnd(), unit="s"),
         freq=pd.Timedelta(seconds=daily.Interval()),
         inclusive="left"
-    )[1:],
-        "temperature_2m_max": daily_temperature_2m_max[1:],
-        "temperature_2m_min": daily_temperature_2m_min[1:],
-        "temperature_2m_mean": daily_temperature_2m_mean[1:],
-        "daylight_duration": daily_daylight_duration[1:],
-        "precipitation_sum": daily_precipitation_sum[1:],
-        "rain_sum": daily_rain_sum[1:],
-        "snowfall_sum": daily_snowfall_sum[1:],
-        "precipitation_hours": daily_precipitation_hours[1:]
-    }
+    ),
+                  "temperature_2m_max": daily_temperature_2m_max,
+                  "temperature_2m_min": daily_temperature_2m_min,
+                  "temperature_2m_mean": daily_temperature_2m_mean,
+                  "daylight_duration": daily_daylight_duration,
+                  "precipitation_sum": daily_precipitation_sum,
+                  "rain_sum": daily_rain_sum,
+                  "snowfall_sum": daily_snowfall_sum,
+                  "precipitation_hours": daily_precipitation_hours
+                  }
 
     daily_dataframe = pd.DataFrame(data=daily_data)
     daily_dataframe = daily_dataframe.reset_index()
