@@ -16,3 +16,7 @@ FILE PYTHON:
 -calculate_consumption: Qui troviamo la logica che serve per la creazioni dei file csv che calcola i giorni e il mese sulla base dei csv originali forniti da Andrea.
 
 -meteoAPI: Codice che serve chiamare le API di Open-Meteo e fornirci e caricare i dati meteo su dataset historical_meteo.csv
+
+
+INFO GENERALI:
+![img.png](img.png)
