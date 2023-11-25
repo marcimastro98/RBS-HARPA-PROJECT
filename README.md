@@ -74,3 +74,12 @@ podman build -t localhost/rbs-harpa-project:latest -f Containerfile .
 ## Run container
 podman run --rm --name test -v ./dataset_result:/app/dataset_result:rw,z  localhost/rbs-harpa-project:latest 
 ````
+---
+
+#### Come contribuire al progetto
+
+ - Fork it (https://github.com/marcimastro98/RBS-HARPA-PROJECT)
+ - Crea un nuovo ramo con le feature che vuoi includere (git checkout -b **feature/fooBar**)
+ - Commit delle modifiche (git commit -am 'Add some fooBar')
+ - Push del nuovo ramo (git push origin **feature/fooBar**)
+ - Crea una nuova *Pull Request*
