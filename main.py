@@ -8,9 +8,10 @@ import pandas as pd
 def create_csv_meteo_consumption():
     consumption = calculate_consumption()
 
-    for name, data_dict in consumption['daily'].items():
-        start_date_meteo = str(data_dict['Date'].iloc[0]).split(' ')[0]
-        end_date_meteo = str(data_dict['Date'].iloc[-1]).split(' ')[0]
+    for name, data_dict in consumption:
+        print(data_dict.columns)
+        start_date_meteo = str(data_dict.index[0].date())  # Use .date() to get only the date part without time
+        end_date_meteo = str(data_dict.index[-1].date())
 
         start_date_meteo = datetime.strptime(start_date_meteo, '%Y-%m-%d').strftime('%Y-%m-%d')
         end_date_meteo = datetime.strptime(end_date_meteo, '%Y-%m-%d').strftime('%Y-%m-%d')

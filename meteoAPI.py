@@ -41,7 +41,7 @@ def historical_meteo_data(start_date_meteo, end_date_meteo):
     start = pd.to_datetime(hourly.Time(), unit="s").normalize()
     if start.day != 1:
         start += pd.Timedelta(days=1)
- # in ore
+    # in ore
     hourly_data = {"date": pd.date_range(
         start=start,
         end=pd.to_datetime(hourly.TimeEnd(), unit="s"),
