@@ -1,11 +1,12 @@
 # RBS-HARPA-PROJECT
-All'interno del branch main troverete 3 file e diversi dataset.
+- Allo start del progetto viene creata la cartella dataset_result <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>
+
 
 #### Dataset:
 
 - Dataset: troverete i file csv originali forniti da Andrea.
 
-- dataset_result:  ci sono 2 cartelle e diversi file csv, i file csv presenti nella cartella meteo_consumption sono join fra i consumi e i dati meteo creati per giorni(sto lavorando a quelli per mese). 
+- dataset_result: Cartella creata in automatico con sottocartelle in base all'operazione effettuata, dentro le successive cartelle i dataset prodotti si divideranno per ORA, GIORNO, MESE, ANNO
 
 Dentro la cartella meteo, ci sono dati meteo scaricati dall'API
 
@@ -30,12 +31,12 @@ Infine i file dentro la cartella dataset_result sono i tabelle dove troviamo i k
 
 #### Dipendenze 
 
-| #     | Nome              | Versione  | 
-| ---   | ---               | ---       |
-| 1     | openmeteo_requests    | 1.1.0     | 
-| 2     | pandas                | 2.0.3     | 
-| 3     | requests_cache        | 1.1.1     |
-| 4     | retry_requests        | 2.0.0     |
+| # | Nome               | Versione | 
+|---|--------------------|----------|
+| 1 | openmeteo_requests | 1.1.0    | 
+| 2 | pandas             | 2.0.3    | 
+| 3 | requests_cache     | 1.1.1    |
+| 4 | retry_requests     | 2.0.0    |
 
 ---
 
