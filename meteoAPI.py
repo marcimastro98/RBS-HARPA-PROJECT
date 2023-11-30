@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 from openmeteo_requests import Client
 import requests_cache

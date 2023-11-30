@@ -5,5 +5,5 @@ from sklearn.metrics import mean_squared_error
 from math import sqrt
 
 
-def isSmartWorkingDay():
+def isSmartWorkingDay(consumption_per_slot_hour):
     print("da fare")
