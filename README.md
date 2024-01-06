@@ -39,7 +39,9 @@ Infine i file dentro la cartella dataset_result sono i tabelle dove troviamo i k
 
 ---
 
-#### Esecuzione su Python
+### Esecuzione applicativo Python
+
+#### Esecuzione su Python 
 
 ````
 ## PIP install
@@ -76,7 +78,22 @@ podman run --rm --name test -v ./dataset_result:/app/dataset_result:rw,z  localh
 ````
 ---
 
-#### Come contribuire al progetto
+### Esecuzione  SQL (Postgres)
+
+#### Esecuzione su Podman
+
+````
+podman run --name postgres -e POSTGRES_USER=harpa -e POSTGRES_PASSWORD=harpa -p 5432:5432 -v $PWD/Dataset/pg_data -d postgres
+````
+Caricare i dati nel database utilizzando i seguenti file.
+
+- Dataset/Generale_Data_Center_Energia_Attiva.sql
+- Dataset/Generale_Edificio_Energia_Attiva.sql
+- Dataset/Impianto_Fotovoltaico_Energia_Attiva_Prodotta.sql
+
+Successivamente eseguire lo script SQL "dataset_result/SQL/script_SQL_merge_dataset.sql" per creare l'analisi finale.
+
+### Come contribuire al progetto
 
  - Fork it (https://github.com/marcimastro98/RBS-HARPA-PROJECT)
  - Crea un nuovo ramo con le feature che vuoi includere (git checkout -b **feature/fooBar**)
