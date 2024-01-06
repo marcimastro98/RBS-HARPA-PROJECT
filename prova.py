@@ -1,63 +1,41 @@
-import openmeteo_requests
-
-import requests_cache
 import pandas as pd
-from retry_requests import retry
 
-# Setup the Open-Meteo API client with cache and retry on error
-cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
-retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
-openmeteo = openmeteo_requests.Client(session=retry_session)
 
-# Make sure all required weather variables are listed here
-# The order of variables in hourly or daily is important to assign them correctly below
-url = "https://archive-api.open-meteo.com/v1/archive"
-params = {
-    "latitude": 41.954706,
-    "longitude": 12.486289,
-    "start_date": "2021-01-01",
-    "end_date": "2023-11-11",
-    "hourly": ["temperature_2m", "relative_humidity_2m", "precipitation", "rain", "pressure_msl", "surface_pressure",
-               "cloud_cover"],
-    "timezone": "Europe/Rome",
-    "timezone_abbreviation": "CEST"
-}
-responses = openmeteo.weather_api(url, params=params)
+def calculate_consumption_test(consumption_per_date, name):
+    # Convert 'Date' column to datetime objects and set as index
+    consumption_per_date['Date'] = pd.to_datetime(consumption_per_date['Date'], format='%Y-%m-%d %H:%M:%S')
+    consumption_per_date.set_index('Date', inplace=True)
 
-# Process first location. Add a for-loop for multiple locations or weather models
-response = responses[0]
-print(f"Coordinates {response.Latitude()}°E {response.Longitude()}°N")
-print(f"Elevation {response.Elevation()} m asl")
-print(f"Timezone {response.Timezone()} {response.TimezoneAbbreviation()}")
-print(f"Timezone difference to GMT+0 {response.UtcOffsetSeconds()} s")
+    # Define a function to format the date range string
+    def format_date_range(start, frequ):
+        if frequ == 'H':
+            end = start + pd.Timedelta(hours=1)
+            return start.strftime('%Y-%m-%d %H:00 -> ') + end.strftime('%H:00')
+        elif frequ == 'D':
+            return start.strftime('%Y-%m-%d')
+        elif frequ == 'M':
+            return start.strftime('%Y-%m')
+        elif frequ == 'Y':
+            return start.strftime('%Y')
 
-# Process hourly data. The order of variables needs to be the same as requested.
-hourly = response.Hourly()
-hourly_temperature_2m = hourly.Variables(0).ValuesAsNumpy()
-hourly_relative_humidity_2m = hourly.Variables(1).ValuesAsNumpy()
-hourly_precipitation = hourly.Variables(2).ValuesAsNumpy()
-hourly_rain = hourly.Variables(3).ValuesAsNumpy()
-hourly_pressure_msl = hourly.Variables(4).ValuesAsNumpy()
-hourly_surface_pressure = hourly.Variables(5).ValuesAsNumpy()
-hourly_cloud_cover = hourly.Variables(6).ValuesAsNumpy()
+    # Initialize a dictionary to hold the different consumption DataFrames
+    consumption_diffs = {}
 
-# start = pd.to_datetime(hourly.Time(), unit="s").normalize()
-# if start.day != 1:
-#     start += pd.Timedelta(days=1)
+    # Calculate differences and format date ranges for hourly, daily, monthly, yearly
+    for freq in ['H', 'D', 'M', 'Y']:
+        diff = consumption_per_date['Kilowatt'].resample(freq).last() - consumption_per_date['Kilowatt'].resample(
+            freq).first()
+        diff = diff.reset_index()
+        diff['Date'] = diff['Date'].apply(lambda x: format_date_range(x, freq))
+        diff.rename(columns={'Kilowatt': f'{freq}_Kilowatt_Consumed'}, inplace=True)
+        diff.insert(0, 'ID', range(len(diff)))
+        consumption_diffs[freq] = diff
+        diff.to_csv(f'dataset_result/difference_consumption/{freq}/{name}_{freq.lower()}_difference_consumption.csv',
+                    index=False)
 
-hourly_data = {"date": pd.date_range(
-    start=pd.to_datetime(hourly.Time(), unit="s"),
-    end=pd.to_datetime(hourly.TimeEnd(), unit="s"),
-    freq=pd.Timedelta(seconds=hourly.Interval()),
-    inclusive="left"
-), "temperature_2m": hourly_temperature_2m,
-    "relative_humidity_2m": hourly_relative_humidity_2m,
-    "precipitation": hourly_precipitation,
-    "rain": hourly_rain,
-    "pressure_msl": hourly_pressure_msl,
-    "surface_pressure": hourly_surface_pressure,
-    "cloud_cover": hourly_cloud_cover
-}
+    return consumption_diffs
 
-hourly_dataframe = pd.DataFrame(data=hourly_data)
-print(hourly_dataframe)
+# Example usage:
+# Assuming `consumption_data` is a DataFrame with 'Date' and 'Kilowatt' columns
+# consumption_data = pd.read_csv('path_to_your_csv.csv')
+# results = calculate_consumption_test(consumption_data, 'example_name')

@@ -1,10 +1,11 @@
+import os
 import pandas as pd
 from openmeteo_requests import Client
 import requests_cache
 from retry_requests import retry
 
 
-def historical_meteo_data(start_date_meteo, end_date_meteo):
+def historical_meteo_data(start_date_meteo, end_date_meteo, value):
     # Setup the Open-Meteo API client with cache and retry on error
     cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
     retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
@@ -41,7 +42,7 @@ def historical_meteo_data(start_date_meteo, end_date_meteo):
     start = pd.to_datetime(hourly.Time(), unit="s").normalize()
     if start.day != 1:
         start += pd.Timedelta(days=1)
- # in ore
+    # in ore
     hourly_data = {"date": pd.date_range(
         start=start,
         end=pd.to_datetime(hourly.TimeEnd(), unit="s"),
@@ -57,10 +58,18 @@ def historical_meteo_data(start_date_meteo, end_date_meteo):
     }
 
     # Creating the DataFrame
+
     hourly_dataframe = pd.DataFrame(hourly_data)
     hourly_dataframe['date'] = pd.to_datetime(hourly_dataframe['date'])
     hourly_dataframe.set_index('date', inplace=True)
-    daily_stats = hourly_dataframe.resample('D').agg({
+
+    # After setting the index,get the max date from the index directly
+    last_known_date = hourly_dataframe.index.max()
+
+    # last known date to filter the dataframe if necessary
+    hourly_dataframe = hourly_dataframe[hourly_dataframe.index <= last_known_date]
+    period = str(value).split('_')[0][0]
+    daily_stats = hourly_dataframe.resample(period).agg({
         'temperature_2m': ['mean', 'min', 'max'],
         'relative_humidity_2m': ['mean', 'min', 'max'],
         'precipitation': ['mean', 'min', 'max'],
@@ -70,8 +79,10 @@ def historical_meteo_data(start_date_meteo, end_date_meteo):
         'cloud_cover': ['mean', 'min', 'max'],
     }).round(1)
     daily_stats.columns = ['_'.join(col) for col in daily_stats.columns]
+    daily_stats.insert(0, 'ID', range(len(daily_stats)))
+    # Reset the index and assign the result back to daily_stats
     daily_stats.reset_index(inplace=True)
-    daily_stats = daily_stats.reset_index()
-    daily_stats.rename(columns={'index': 'ID'}, inplace=True)
-    daily_stats.to_csv('dataset_result/meteo/historical_meteo.csv', index=False)
+    folder_path = f'dataset_result/meteo/{period}/'
+    os.makedirs(folder_path, exist_ok=True)
+    daily_stats.to_csv(os.path.join(folder_path, f'{value}_historical_meteo.csv'), index=False)
     return daily_stats
