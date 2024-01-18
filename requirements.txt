@@ -2,3 +2,4 @@ openmeteo_requests==1.1.0
 pandas==2.0.3
 requests_cache==1.1.1
 retry_requests==2.0.0
+psycopg2==2.9.9

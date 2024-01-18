@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-
 from calculate_consumption import calculate_consumption
 from meteoAPI import historical_meteo_data
 import pandas as pd
