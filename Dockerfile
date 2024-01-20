@@ -8,8 +8,8 @@ LABEL description="Dockerfile for the RBS-HARPA-PROJECT"
 WORKDIR /app
 
 # Copy python files into the container at /app
-COPY main.py /app
-COPY meteoAPI.py /app
+COPY pyscript/main.py /app
+COPY pyscript/meteoAPI.py /app
 COPY calculate_consumption.py /app
 COPY requirements.txt /app
 

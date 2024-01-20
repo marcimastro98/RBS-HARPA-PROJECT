@@ -1,26 +1,33 @@
 # RBS-HARPA-PROJECT
-- Allo start del progetto viene creata la cartella dataset_result <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>
+- Per startare il progetto è necessario installare Docker sul proprio pc. Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory principale e lanciare in console il comando 'docker-compose up -d', questo crea i container relativi a pgadmin e postgres, inoltre lancia la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle. Infine, con questo comando, viene lanciato lo script python contenuto nella cartella pyscript (main.py) <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>. E' possibile visualizzare le tabelle del database da pgadmin dopo avere avviato i container docker, collegandosi all'indirizzo http://localhost:5050.
 
 
 #### Dataset:
 
 - Dataset: troverete i file csv originali forniti da Andrea.
 
-- dataset_result: Cartella creata in automatico con sottocartelle in base all'operazione effettuata, dentro le successive cartelle i dataset prodotti si divideranno per ORA, GIORNO, MESE, ANNO
-
-Dentro la cartella meteo, ci sono dati meteo scaricati dall'API
+#### API:
 
  ``````
     https://open-meteo.com/en/docs/historical-weather-api. 
 ``````
+#### Database:
+All'interno del database trovete diverse tabelle fra cui:
+- Edificio: Contiene i dati originali del csv relativo all'edificio
+- Datacenter: Contiene i dati originali del csv relativo al Datacenter
+- Fotovoltaico: Contiene i dati originali del csv relativo al fotovoltaico
+- aggregazione_ora: Tabelle relativa alla media dei kilowatt delle strutture per ora e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
+- aggregazione_fascia_oraria: Tabelle relativa alla media dei kilowatt delle strutture per fascia oraria (00:00 - 09:00, 09:00 - 18:00, 18:00 - 00:00) e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
+- aggregazione_giorno: Tabelle relativa alla media dei kilowatt delle strutture per giorno e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
+- _aggregazione_mese: Tabelle relativa alla media dei kilowatt delle strutture per mese e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
+- aggregazione_anno: Tabelle relativa alla media dei kilowatt delle strutture per anno e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
 
-Infine i file dentro la cartella dataset_result sono i tabelle dove troviamo i kilowatt consumati per giorni e per mese.
 
 #### File Python:
 
-- main: Codice che serve per la creazione dei file csv all'interno della cartella meteo_consumption e quindi delle tabelle di join fra dati meteo e consumi, inoltre da qui viene runnato il progetto.
+- main: Codice che serve per stabilire la connessione al db e per fare l'update delle tabelle 
 
-- calculate_consumption: Qui troviamo la logica che serve per la creazioni dei file csv che calcola i giorni e il mese sulla base dei csv originali forniti da Andrea.
+- meteo_table: Qui troviamo la logica che serve per fare l'update delle tabelle (calcolo dei kilowatt in base al periodo, calcolo dei kilowatt relativi al consumo degli uffici, aggiunta dei dati meteo)
 
 - meteoAPI: Codice che serve chiamare le API di Open-Meteo e fornirci e caricare i dati meteo su dataset historical_meteo.csv
 
@@ -37,6 +44,7 @@ Infine i file dentro la cartella dataset_result sono i tabelle dove troviamo i k
 | 2 | pandas             | 2.0.3    | 
 | 3 | requests_cache     | 1.1.1    |
 | 4 | retry_requests     | 2.0.0    |
+| 5 | psycopg2           | 2.9.9    |
 
 ---
 
@@ -52,7 +60,12 @@ pip install --no-cache-dir -r requirements.txt
 ````
 python main.py
 ````
+#### Accesso al db da pgadmin
+Una volta collegati a localhost:5050 inserire admin@admin.com e psw:root, tasto destri su Servers -> Register, name: HARPA, Connection -> Host Name: db, Username: user, Password: password
 
+
+
+Parte da definire se lasciarla o no 
 #### Esecuzione su Docker
 
 ````
