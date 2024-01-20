@@ -1,5 +1,5 @@
 # RBS-HARPA-PROJECT
-- Per startare il progetto è necessario installare Docker sul proprio pc. Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory principale e lanciare in console il comando 'docker-compose up -d', questo crea i container relativi a pgadmin e postgres, inoltre lancia la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle. Infine, con questo comando, viene lanciato lo script python contenuto nella cartella pyscript (main.py) <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>. E' possibile visualizzare le tabelle del database da pgadmin dopo avere avviato i container docker, collegandosi all'indirizzo http://localhost:5050.
+- Per startare il progetto è necessario installare Docker sul proprio pc. Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory Docker e lanciare in console il comando 'docker-compose up -d', questo crea i container relativi a pgadmin e postgres, inoltre si occupa di eseguire la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle. Infine, con questo comando, viene lanciato lo script python contenuto nella cartella pyscript (main.py) <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>. E' possibile visualizzare le tabelle del database da pgadmin dopo avere avviato i container docker, collegandosi all'indirizzo http://localhost:5050.
 
 
 #### Dataset:
@@ -45,6 +45,9 @@ All'interno del database trovete diverse tabelle fra cui:
 | 3 | requests_cache     | 1.1.1    |
 | 4 | retry_requests     | 2.0.0    |
 | 5 | psycopg2           | 2.9.9    |
+| 6 | python_dotenv      | 1.0.0    |
+
+
 
 ---
 
