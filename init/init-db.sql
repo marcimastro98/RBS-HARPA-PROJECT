@@ -38,6 +38,7 @@ WITH (FORMAT csv, HEADER true, DELIMITER ',');
 CREATE TABLE HARPA.aggregazione_ora AS
 SELECT
   DATE_TRUNC('hour', data) AS ora,
+  TO_CHAR(DATE_TRUNC('hour', data), 'Day') AS giorno_settimana,
   MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
   MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
@@ -57,12 +58,13 @@ FROM (
   UNION ALL
   SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
 ) AS sub
-GROUP BY ora;
+GROUP BY ora, TO_CHAR(DATE_TRUNC('hour', sub.data), 'Day');
 
 
 CREATE TABLE HARPA.aggregazione_fascia_oraria AS
 SELECT
   DATE(data) AS giorno,
+  TO_CHAR(data, 'Day') AS giorno_settimana,
   CASE
     WHEN EXTRACT(HOUR FROM data) >= 0 AND EXTRACT(HOUR FROM data) < 9 THEN '00:00-09:00'
     WHEN EXTRACT(HOUR FROM data) >= 9 AND EXTRACT(HOUR FROM data) < 18 THEN '09:00-18:00'
@@ -87,7 +89,7 @@ FROM (
   UNION ALL
   SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
 ) AS sub
-GROUP BY giorno, fascia_oraria;
+GROUP BY giorno, TO_CHAR(data, 'Day'), fascia_oraria;
 
 
 
@@ -95,6 +97,7 @@ GROUP BY giorno, fascia_oraria;
 CREATE TABLE HARPA.aggregazione_giorno AS
 SELECT
   DATE_TRUNC('day', data)::date AS giorno,
+  TO_CHAR(data, 'Day') AS giorno_settimana,
   MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
   MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
@@ -114,7 +117,7 @@ FROM (
   UNION ALL
   SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
 ) AS sub
-GROUP BY giorno;
+GROUP BY DATE_TRUNC('day', data)::date, TO_CHAR(data, 'Day');
 
 CREATE TABLE HARPA.aggregazione_mese AS
 SELECT
