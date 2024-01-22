@@ -1,96 +1,113 @@
 from datetime import datetime
+
+import numpy as np
 import pandas as pd
 from openmeteo_requests import Client
 import requests_cache
 from retry_requests import retry
 
 
-def smartworking_dataset():
-    df = merge_meteo_to_consumption()
-    df['Giorno'] = pd.to_datetime(df['Giorno'], format='%d/%m/%y')
-    mean_delta_ufficio = calculate_mean_delta_ufficio(df)
-    bad_weather_codes = [95, 96, 99]
-    high_precipitation_threshold = 10
+def smartworking_insert(cur):
+    try:
+        # Inizia una transazione
+        cur.execute("BEGIN;")
 
-    df['Smartworking_Status'] = df.apply(
-        lambda row: 'Smartworking' if is_smartworking_day(row, mean_delta_ufficio, bad_weather_codes,
-                                                          high_precipitation_threshold) else 'In Office',
-        axis=1)
-    df.to_csv('./dataset_sql_result_day/merged_data_meteo.csv', index=False)
+        schema_name = 'harpa'
+        tables_to_update = ['aggregazione_giorno', 'aggregazione_fascia_oraria',
+                            'aggregazione_mese', 'aggregazione_anno']
+        for table in tables_to_update:
+            cur.execute(f"""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_schema = '{schema_name}' AND table_name = '{table}' AND column_name = 'is_smartworking'
+                    ) THEN
+                        ALTER TABLE {schema_name}.{table} ADD COLUMN is_smartworking TEXT;
+                    END IF;
+                END
+                $$;
+            """)
+
+        # Esecuzione della query principale e costruzione del DataFrame
+        aggregazione_oraria_query = """
+            SELECT
+                giorno, 
+                giorno_settimana, 
+                fascia_oraria, 
+                kilowatt_ufficio_diff,
+                EXTRACT(DOW FROM giorno) AS giorno_settimana_numerico
+            FROM harpa.aggregazione_fascia_oraria
+            WHERE 
+                EXTRACT(DOW FROM giorno) BETWEEN 1 AND 5
+                AND fascia_oraria = '09:00-18:00'
+            ORDER BY giorno;
+        """
+        cur.execute(aggregazione_oraria_query)
+        df = pd.DataFrame(cur.fetchall(), columns=[desc[0] for desc in cur.description])
+
+        # Calcolo della media e assegnazione dei valori 'is_smartworking'
+        media_kilowatt = df['kilowatt_ufficio_diff'].mean()
+
+        # Applicazione di una espressione lambda che usa if-elif-else direttamente
+        df['is_smartworking'] = df['kilowatt_ufficio_diff'].apply(
+            lambda kilowatt: None if pd.isnull(kilowatt)
+            else 'OK' if kilowatt > media_kilowatt
+            else 'KO'
+        )
+
+        # Aggiornamento delle tabelle con i valori 'is_smartworking'
+        update_queries = {
+            'aggregazione_giorno': """
+                UPDATE harpa.aggregazione_giorno
+                SET is_smartworking = %s
+                WHERE giorno = %s;
+            """,
+            'aggregazione_fascia_oraria': """
+                UPDATE harpa.aggregazione_fascia_oraria
+                SET is_smartworking = %s
+                WHERE giorno = %s AND fascia_oraria = %s;
+            """
+        }
+
+        for i, row in df.iterrows():
+            cur.execute(update_queries['aggregazione_giorno'], (row['is_smartworking'], row['giorno']))
+            cur.execute(update_queries['aggregazione_fascia_oraria'], (row['is_smartworking'], row['giorno'], row['fascia_oraria']))
+
+        # Inserimento dei dati aggregati nelle tabelle mensili e annuali
+        cur.execute("""
+            UPDATE harpa.aggregazione_mese
+            SET is_smartworking = subquery.percentuale_smart_working
+            FROM (
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', giorno), 'YYYY-MM') AS mese_troncato,  -- Converti il timestamp in una stringa 'YYYY-MM'
+                    TO_CHAR(ROUND((COUNT(*) FILTER (WHERE is_smartworking = 'OK')::NUMERIC / COUNT(*)) * 100, 2), 'FM9990.00') || '%' AS percentuale_smart_working
+                FROM harpa.aggregazione_giorno
+                GROUP BY DATE_TRUNC('month', giorno)
+            ) AS subquery
+            WHERE harpa.aggregazione_mese.mese = subquery.mese_troncato;  -- Confronta la stringa 'YYYY-MM' con un'altra stringa 'YYYY-MM'
+        """)
+        cur.execute("""
+            UPDATE harpa.aggregazione_anno
+            SET is_smartworking = subquery.percentuale_smart_working
+            FROM (
+                SELECT
+                    EXTRACT(YEAR FROM giorno) AS anno,
+                    TO_CHAR(ROUND((COUNT(*) FILTER (WHERE is_smartworking = 'OK')::NUMERIC / COUNT(*)) * 100, 2), 'FM9990.00')
+                     || '%' AS percentuale_smart_working FROM harpa.aggregazione_giorno
+                GROUP BY EXTRACT(YEAR FROM giorno)
+            ) AS subquery
+            WHERE harpa.aggregazione_anno.anno = subquery.anno;
+
+        """)
+
+        # Commit delle modifiche
+        cur.execute("COMMIT;")
+        print("Added smartworking days to tables!")
+    except Exception as e:
+        # In caso di errore, effettua il rollback
+        cur.execute("ROLLBACK;")
+        print(f"Errore nell'aggiunta dello smart working: {e}")
+        raise
 
 
-def calculate_mean_delta_ufficio(df):
-    conditions = (
-            (df['NOME_GIORNO'].isin(['sabato', 'domenica'])) |
-            (df['Giorno'].dt.month == 8) |
-            ((df['Giorno'].dt.month == 12) & (df['Giorno'].dt.day >= 24)) |
-            ((df['Giorno'].dt.month == 1) & (df['Giorno'].dt.day <= 9))
-    )
-    filtered_df = df[conditions & (df['DELTA_UFFICIO'] >= 2)]
-    return filtered_df['DELTA_UFFICIO'].mean()
-
-
-def is_smartworking_day(row, mean_delta_ufficio, bad_weather_codes, high_precipitation_threshold):
-    avg_temp = (row['temperature_2m_max'] + row['temperature_2m_min']) / 2
-    return (
-            row['CHECK_DAY'] == 'WorkDays' and
-            row['DELTA_UFFICIO'] < 100 and
-            (row['weather_code'] in bad_weather_codes or
-             row['precipitation_sum(mm)'] > high_precipitation_threshold or
-             avg_temp <= 5)
-    )
-
-
-def merge_meteo_to_consumption():
-    df = pd.read_csv('../dataset_sql_result_day/Excel_estrazione.csv', delimiter=';')
-    start_date_meteo = datetime.strptime(df['Giorno'][0], '%d/%m/%y').strftime('%Y-%m-%d')
-    end_date_meteo = datetime.strptime(df['Giorno'].iloc[-1], '%d/%m/%y').strftime('%Y-%m-%d')
-    meteo_data = historical_meteo_data(start_date_meteo, end_date_meteo)
-    # Convertire il formato della data
-    meteo_data['date'] = meteo_data['date'].apply(lambda d: d.strftime('%d/%m/%y'))
-    df_merged = df.merge(meteo_data, left_on='Giorno', right_on='date')
-    df_merged.to_csv('./dataset_sql_result_day/merged_data_meteo.csv', index=False)
-    return df_merged
-
-
-def historical_meteo_data(start_date_meteo, end_date_meteo):
-    # Setup the Open-Meteo API client with cache and retry on error
-    cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
-    retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
-    openmeteo = Client(session=retry_session)
-    url = "https://archive-api.open-meteo.com/v1/archive"
-    # Make sure all required weather variables are listed here
-    params = {
-        "latitude": 41.954706,
-        "longitude": 12.486289,
-        "start_date": start_date_meteo,
-        "end_date": end_date_meteo,
-        "daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_sum", "rain_sum",
-                  "precipitation_probability_max"],
-        "timezone": "Europe/Rome",
-        "timezone_abbreviation": "CEST"
-    }
-
-    responses = openmeteo.weather_api(url, params=params)
-
-    # Assuming that the response object has the required methods to access the weather data
-    response = responses[0]
-
-    daily = response.Daily()
-    daily_weather_code = daily.Variables(0).ValuesAsNumpy()
-    daily_temperature_2m_max = daily.Variables(1).ValuesAsNumpy()
-    daily_temperature_2m_min = daily.Variables(2).ValuesAsNumpy()
-    daily_precipitation_sum = daily.Variables(3).ValuesAsNumpy()
-    daily_rain_sum = daily.Variables(4).ValuesAsNumpy()
-    # daily_precipitation_probability_max = daily.Variables(5).ValuesAsNumpy()
-
-    daily_data = {"date": pd.date_range(
-        start=pd.to_datetime(daily.Time(), unit="s"),
-        end=pd.to_datetime(daily.TimeEnd(), unit="s"),
-        freq=pd.Timedelta(seconds=daily.Interval()),
-        inclusive="left"
-    ), "weather_code": daily_weather_code, "temperature_2m_max": daily_temperature_2m_max,
-        "temperature_2m_min": daily_temperature_2m_min, "precipitation_sum(mm)": daily_precipitation_sum,
-        "rain_sum(mm)": daily_rain_sum}
-    daily_dataframe = pd.DataFrame(data=daily_data)
-    return daily_dataframe

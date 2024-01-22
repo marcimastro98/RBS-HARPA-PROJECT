@@ -121,7 +121,7 @@ GROUP BY DATE_TRUNC('day', data)::date, TO_CHAR(data, 'Day');
 
 CREATE TABLE HARPA.aggregazione_mese AS
 SELECT
-TO_CHAR(data, 'YYYY-MM') AS anno_mese,
+TO_CHAR(data, 'YYYY-MM') AS mese,
   MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
   MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -

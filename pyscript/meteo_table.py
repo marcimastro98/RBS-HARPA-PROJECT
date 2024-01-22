@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from psycopg2._psycopg import OperationalError
 from psycopg2.extras import execute_values
 from meteoAPI import historical_meteo_data
+import smartworkingdays
 
 
 def db_conn():
@@ -119,8 +120,6 @@ def update_tables_meteo_data(tables, cur, conn):
                 meteo_data_fascia_oraria['only_time'] = meteo_data_fascia_oraria['date'].dt.time
                 meteo_data_fascia_oraria['fascia_oraria'] = meteo_data_fascia_oraria['only_time'].apply(
                     categorizza_fascia_oraria)
-                meteo_data_fascia_oraria['fascia_oraria'] = meteo_data_fascia_oraria['fascia_oraria'].str.replace(" - ",
-                                                                                                                  "-")
                 colonne_numeriche = meteo_data_fascia_oraria.select_dtypes(include=['number'])
                 meteo_data_aggregata = (colonne_numeriche.groupby([meteo_data_fascia_oraria['only_date'],
                                                                    meteo_data_fascia_oraria['fascia_oraria']])
@@ -223,16 +222,6 @@ def update_tables_meteo_data(tables, cur, conn):
                 print(f"Error querying table {table[0]}: {e}")
         elif table[0] == 'aggregazione_mese':
             try:
-                # Al momento non lo facciamo in quanto si dovrebbe salvare l'ultimo giorno dei dati salvati in db
-                # cur.execute(f"SELECT DISTINCT anno_mese FROM HARPA.{table[0]} ORDER BY anno_mese")
-                # records = cur.fetchall()
-                # start_date = records[0][0]
-                # end_date = records[-1][0]
-                # if meteo_data is None:
-                #     start_date_str = start_date.strftime("%Y-%m-%d")
-                #     end_date_str = end_date.strftime("%Y-%m-%d")
-                #     meteo_data = historical_meteo_data(start_date_str,
-                #                                        end_date_str) if meteo_data is None else meteo_data
                 meteo_data_mese = meteo_data
                 meteo_data_mese['date'] = pd.to_datetime(meteo_data_mese['date'])
                 meteo_data_mese['year_month'] = meteo_data_mese['date'].dt.strftime('%Y-%m')
@@ -264,7 +253,7 @@ def update_tables_meteo_data(tables, cur, conn):
                         rain = data.rain,
                         cloud_cover = data.cloud_cover
                     FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, year_month)
-                    WHERE HARPA.aggregazione_mese.anno_mese = data.year_month;
+                    WHERE HARPA.aggregazione_mese.mese = data.year_month;
                 """
 
                 try:
@@ -279,16 +268,6 @@ def update_tables_meteo_data(tables, cur, conn):
                 print(f"Error querying table {table[0]}: {e}")
         elif table[0] == 'aggregazione_anno':
             try:
-                # Al momento non lo facciamo in quanto si dovrebbe salvare l'ultimo giorno dei dati salvati in db
-                # cur.execute(f"SELECT DISTINCT anno_mese FROM HARPA.{table[0]} ORDER BY anno_mese")
-                # records = cur.fetchall()
-                # start_date = records[0][0]
-                # end_date = records[-1][0]
-                # if meteo_data is None:
-                #     start_date_str = start_date.strftime("%Y-%m-%d")
-                #     end_date_str = end_date.strftime("%Y-%m-%d")
-                #     meteo_data = historical_meteo_data(start_date_str,
-                #                                        end_date_str) if meteo_data is None else meteo_data
                 meteo_data_anno = meteo_data
                 meteo_data_anno['date'] = pd.to_datetime(meteo_data_anno['date'])
                 meteo_data_anno['year'] = meteo_data_anno['date'].dt.year
@@ -335,14 +314,15 @@ def update_tables_meteo_data(tables, cur, conn):
             except psycopg2.Error as e:
                 print(f"Error querying table {table[0]}: {e}")
     # Close the cursor and connection
+    smartworkingdays.smartworking_insert(cur)
     cur.close()
     conn.close()
 
 
 def categorizza_fascia_oraria(orario):
     if orario < pd.Timestamp('09:00').time():
-        return '00:00 - 09:00'
+        return '00:00-09:00'
     elif orario < pd.Timestamp('18:00').time():
-        return '09:00 - 18:00'
+        return '09:00-18:00'
     else:
-        return '18:00 - 00:00'
+        return '18:00-00:00'
