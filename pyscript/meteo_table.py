@@ -1,3 +1,4 @@
+import datetime
 import os
 import time
 
@@ -6,7 +7,7 @@ import psycopg2
 from dotenv import load_dotenv
 from psycopg2._psycopg import OperationalError
 from psycopg2.extras import execute_values
-from meteoAPI import historical_meteo_data
+from meteoAPI import meteo_data_forecast
 import smartworkingdays
 
 
@@ -62,36 +63,70 @@ def update_tables_meteo_data(tables, cur, conn):
 
                 start_date_str = start_date.strftime("%Y-%m-%d")
                 end_date_str = end_date.strftime("%Y-%m-%d")
-                meteo_data = historical_meteo_data(start_date_str, end_date_str) if meteo_data is None else meteo_data
+                meteo_data = meteo_data_forecast(start_date_str, end_date_str,
+                                                 False, None) if meteo_data is None else meteo_data
 
                 # Controllare le colonne esistenti
                 cur.execute("SELECT * FROM HARPA.aggregazione_ora LIMIT 0")
                 col_names = [desc[0] for desc in cur.description]
 
                 # Aggiungere le colonne se non esistono
-                columns_to_add = ['temperature', 'rain', 'cloud_cover']
+                columns_to_add = ['solo_ora', 'giorno', 'fascia_oraria', 'temperature', 'rain', 'cloud_cover',
+                                  'relative_humidity_2m',
+                                  'wind_speed_10m',
+                                  'wind_direction_10m']
                 columns_to_alter = [col for col in columns_to_add if col not in col_names]
                 for col in columns_to_alter:
-                    alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} NUMERIC(10, 5);"
+                    if col == 'fascia_oraria':
+                        alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} text;"
+                    elif col == 'giorno':
+                        alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} date;"
+                    elif col == 'solo_ora':
+                        alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} time;"
+                    else:
+                        alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} NUMERIC(10, 5);"
                     cur.execute(alter_table_query)
 
+                batch_update_data = []
+                for record in records:
+                    data_ora_completa = record[0]
+                    solo_ora_str = data_ora_completa.strftime("%H:%M:%S")  # Estrai solo l'ora come stringa
+                    solo_ora = datetime.datetime.strptime(solo_ora_str, "%H:%M:%S").time()  # Converti in oggetto time
+                    giorno_str = data_ora_completa.strftime("%Y-%m-%d")  # Estrai solo il giorno come stringa
+                    giorno = datetime.datetime.strptime(giorno_str, "%Y-%m-%d").date()
+                    fascia = categorizza_fascia_oraria(data_ora_completa.time())
+                    batch_update_data.append((giorno, fascia, solo_ora, data_ora_completa))
+
+                # Creare una query di aggiornamento batch
+                batch_update_query = """
+                    UPDATE HARPA.aggregazione_ora
+                    SET solo_ora = data.solo_ora, giorno = data.giorno, fascia_oraria = data.fascia_oraria
+                    FROM (VALUES %s) AS data(giorno, fascia_oraria, solo_ora, data_ora_completa)
+                    WHERE HARPA.aggregazione_ora.ora = data.data_ora_completa;
+                """
+                execute_values(cur, batch_update_query, batch_update_data)
                 # Preparaew i dati per l'aggiornamento batch
                 update_data = []
                 for index, row in meteo_data.iterrows():
-                    update_data.append((row['temperature_2m'], row['rain'], row['cloud_cover'], row['date']))
+                    update_data.append((row['temperature_2m'], row['rain'], row['cloud_cover'],
+                                        row['relative_humidity_2m'], row['wind_speed_10m'], row['wind_direction_10m'],
+                                        row['date']))
 
                 # Eseguire l'aggiornamento batch
                 update_query = """
                     UPDATE HARPA.aggregazione_ora
                     SET temperature = data.temperature_2m,
                         rain = data.rain,
-                        cloud_cover = data.cloud_cover
-                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, date)
+                        cloud_cover = data.cloud_cover,
+                        relative_humidity_2m = data.relative_humidity_2m,
+                        wind_speed_10m = data.wind_speed_10m,
+                        wind_direction_10m = data.wind_direction_10m
+                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, 
+                    relative_humidity_2m, wind_speed_10m, wind_direction_10m, date)
                     WHERE ora = data.date;
                 """
                 try:
                     execute_values(cur, update_query, update_data)
-                    # print(cur.mogrify(update_query, [update_data]).decode('utf-8'))
                     conn.commit()
                     print(f"Table {table[0]} correctly updated ")
                 except Exception as e:
@@ -112,8 +147,10 @@ def update_tables_meteo_data(tables, cur, conn):
 
                 start_date_str = start_date.strftime("%Y-%m-%d")
                 end_date_str = end_date.strftime("%Y-%m-%d")
-                meteo_data = historical_meteo_data(start_date_str,
-                                                   end_date_str) if meteo_data is None else meteo_data
+                meteo_data = meteo_data_forecast(start_date_str,
+                                                 end_date_str,
+                                                 False,
+                                                 None) if meteo_data is None else meteo_data
                 meteo_data_fascia_oraria = meteo_data
                 meteo_data_fascia_oraria['date'] = pd.to_datetime(meteo_data_fascia_oraria['date'])
                 meteo_data_fascia_oraria['only_date'] = meteo_data_fascia_oraria['date'].dt.date
@@ -130,7 +167,8 @@ def update_tables_meteo_data(tables, cur, conn):
                 col_names = [desc[0] for desc in cur.description]
 
                 # Aggiungere le colonne se non esistono
-                columns_to_add = ['temperature', 'rain', 'cloud_cover']
+                columns_to_add = ['temperature', 'rain', 'cloud_cover', 'relative_humidity_2m', 'wind_speed_10m',
+                                  'wind_direction_10m']
                 columns_to_alter = [col for col in columns_to_add if col not in col_names]
                 for col in columns_to_alter:
                     alter_table_query = f"ALTER TABLE HARPA.aggregazione_fascia_oraria ADD COLUMN {col} NUMERIC(10, 5);"
@@ -141,6 +179,9 @@ def update_tables_meteo_data(tables, cur, conn):
                 for index, row in meteo_data_aggregata.iterrows():
                     update_data.append((row['temperature_2m'],
                                         row['rain'], row['cloud_cover'],
+                                        row['relative_humidity_2m'],
+                                        row['wind_speed_10m'],
+                                        row['wind_direction_10m'],
                                         row['only_date'],
                                         row['fascia_oraria']))
                 # Eseguire l'aggiornamento batch
@@ -148,8 +189,12 @@ def update_tables_meteo_data(tables, cur, conn):
                     UPDATE HARPA.aggregazione_fascia_oraria
                     SET temperature = data.temperature_2m,
                         rain = data.rain,
-                        cloud_cover = data.cloud_cover
-                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, only_date, fascia_oraria)
+                        cloud_cover = data.cloud_cover,
+                        relative_humidity_2m = data.relative_humidity_2m,
+                        wind_speed_10m = data.wind_speed_10m,
+                        wind_direction_10m = data.wind_direction_10m
+                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, relative_humidity_2m, 
+                    wind_speed_10m, wind_direction_10m, only_date, fascia_oraria)
                     WHERE HARPA.aggregazione_fascia_oraria.giorno = data.only_date
                     AND HARPA.aggregazione_fascia_oraria.fascia_oraria = data.fascia_oraria;
                 """
@@ -173,8 +218,10 @@ def update_tables_meteo_data(tables, cur, conn):
 
                 start_date_str = start_date.strftime("%Y-%m-%d")
                 end_date_str = end_date.strftime("%Y-%m-%d")
-                meteo_data = historical_meteo_data(start_date_str,
-                                                   end_date_str) if meteo_data is None else meteo_data
+                meteo_data = meteo_data_forecast(start_date_str,
+                                                 end_date_str,
+                                                 False,
+                                                 None) if meteo_data is None else meteo_data
                 meteo_data_giorno = meteo_data
                 meteo_data_giorno['date'] = pd.to_datetime(meteo_data_giorno['date'])
                 meteo_data_giorno['only_date'] = meteo_data_giorno['date'].dt.date
@@ -187,7 +234,8 @@ def update_tables_meteo_data(tables, cur, conn):
                 col_names = [desc[0] for desc in cur.description]
 
                 # Aggiungere le colonne se non esistono
-                columns_to_add = ['temperature', 'rain', 'cloud_cover']
+                columns_to_add = ['temperature', 'rain', 'cloud_cover', 'relative_humidity_2m', 'wind_speed_10m',
+                                  'wind_direction_10m']
                 columns_to_alter = [col for col in columns_to_add if col not in col_names]
                 for col in columns_to_alter:
                     alter_table_query = f"ALTER TABLE HARPA.aggregazione_giorno ADD COLUMN {col} NUMERIC(10, 5);"
@@ -198,14 +246,21 @@ def update_tables_meteo_data(tables, cur, conn):
                 for index, row in meteo_data_aggregata.iterrows():
                     update_data.append((row['temperature_2m'],
                                         row['rain'], row['cloud_cover'],
+                                        row['relative_humidity_2m'],
+                                        row['wind_speed_10m'],
+                                        row['wind_direction_10m'],
                                         row['only_date']))
                 # Eseguire l'aggiornamento batch
                 update_query = """
                     UPDATE HARPA.aggregazione_giorno  
                     SET temperature = data.temperature_2m,
                         rain = data.rain,
-                        cloud_cover = data.cloud_cover
-                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, only_date)
+                        cloud_cover = data.cloud_cover,
+                        relative_humidity_2m = data.relative_humidity_2m,
+                        wind_speed_10m = data.wind_speed_10m,
+                        wind_direction_10m = data.wind_direction_10m
+                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, relative_humidity_2m, 
+                    wind_speed_10m, wind_direction_10m, only_date)
                     WHERE HARPA.aggregazione_giorno.giorno = data.only_date;
                 """
 
@@ -234,7 +289,8 @@ def update_tables_meteo_data(tables, cur, conn):
                 col_names = [desc[0] for desc in cur.description]
 
                 # Aggiungere le colonne se non esistono
-                columns_to_add = ['temperature', 'rain', 'cloud_cover']
+                columns_to_add = ['temperature', 'rain', 'cloud_cover', 'relative_humidity_2m', 'wind_speed_10m',
+                                  'wind_direction_10m']
                 columns_to_alter = [col for col in columns_to_add if col not in col_names]
                 for col in columns_to_alter:
                     alter_table_query = f"ALTER TABLE HARPA.aggregazione_mese ADD COLUMN {col} NUMERIC(10, 5);"
@@ -245,14 +301,21 @@ def update_tables_meteo_data(tables, cur, conn):
                 for index, row in meteo_data_aggregata.iterrows():
                     update_data.append((row['temperature_2m'],
                                         row['rain'], row['cloud_cover'],
+                                        row['relative_humidity_2m'],
+                                        row['wind_speed_10m'],
+                                        row['wind_direction_10m'],
                                         row['year_month']))
                 # Eseguire l'aggiornamento batch
                 update_query = """
                     UPDATE HARPA.aggregazione_mese  
                     SET temperature = data.temperature_2m,
                         rain = data.rain,
-                        cloud_cover = data.cloud_cover
-                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, year_month)
+                        cloud_cover = data.cloud_cover,
+                        relative_humidity_2m = data.relative_humidity_2m,
+                        wind_speed_10m = data.wind_speed_10m,
+                        wind_direction_10m = data.wind_direction_10m
+                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, relative_humidity_2m, wind_speed_10m,
+                     wind_direction_10m,year_month)
                     WHERE HARPA.aggregazione_mese.mese = data.year_month;
                 """
 
@@ -281,7 +344,8 @@ def update_tables_meteo_data(tables, cur, conn):
                 col_names = [desc[0] for desc in cur.description]
 
                 # Aggiungere le colonne se non esistono
-                columns_to_add = ['temperature', 'rain', 'cloud_cover']
+                columns_to_add = ['temperature', 'rain', 'cloud_cover', 'relative_humidity_2m', 'wind_speed_10m',
+                                  'wind_direction_10m']
                 columns_to_alter = [col for col in columns_to_add if col not in col_names]
                 for col in columns_to_alter:
                     alter_table_query = f"ALTER TABLE HARPA.aggregazione_anno ADD COLUMN {col} NUMERIC(10, 5);"
@@ -292,20 +356,26 @@ def update_tables_meteo_data(tables, cur, conn):
                 for index, row in meteo_data_aggregata.iterrows():
                     update_data.append((row['temperature_2m'],
                                         row['rain'], row['cloud_cover'],
+                                        row['relative_humidity_2m'],
+                                        row['wind_speed_10m'],
+                                        row['wind_direction_10m'],
                                         row['year']))
                 # Eseguire l'aggiornamento batch
                 update_query = """
                     UPDATE HARPA.aggregazione_anno  
                     SET temperature = data.temperature_2m,
                         rain = data.rain,
-                        cloud_cover = data.cloud_cover
-                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, year)
+                        cloud_cover = data.cloud_cover,
+                        relative_humidity_2m = data.relative_humidity_2m,
+                        wind_speed_10m = data.wind_speed_10m,
+                        wind_direction_10m = data.wind_direction_10m
+                    FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, relative_humidity_2m, wind_speed_10m,
+                     wind_direction_10m,year)
                     WHERE HARPA.aggregazione_anno.anno = data.year;
                 """
 
                 try:
                     execute_values(cur, update_query, update_data)
-                    # print(cur.mogrify(update_query, [update_data]).decode('utf-8'))
                     conn.commit()
                     print(f"Table {table[0]} correctly updated ")
                 except Exception as e:

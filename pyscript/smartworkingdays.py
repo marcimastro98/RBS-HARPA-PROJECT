@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from openmeteo_requests import Client
 import requests_cache
+from psycopg2.extras import execute_values
 from retry_requests import retry
 
 
@@ -13,7 +14,7 @@ def smartworking_insert(cur):
         cur.execute("BEGIN;")
 
         schema_name = 'harpa'
-        tables_to_update = ['aggregazione_giorno', 'aggregazione_fascia_oraria',
+        tables_to_update = ['aggregazione_ora', 'aggregazione_giorno', 'aggregazione_fascia_oraria',
                             'aggregazione_mese', 'aggregazione_anno']
         for table in tables_to_update:
             cur.execute(f"""
@@ -38,26 +39,31 @@ def smartworking_insert(cur):
                 kilowatt_ufficio_diff,
                 EXTRACT(DOW FROM giorno) AS giorno_settimana_numerico
             FROM harpa.aggregazione_fascia_oraria
-            WHERE 
-                EXTRACT(DOW FROM giorno) BETWEEN 1 AND 5
-                AND fascia_oraria = '09:00-18:00'
             ORDER BY giorno;
         """
         cur.execute(aggregazione_oraria_query)
         df = pd.DataFrame(cur.fetchall(), columns=[desc[0] for desc in cur.description])
 
-        # Calcolo della media e assegnazione dei valori 'is_smartworking'
-        media_kilowatt = df['kilowatt_ufficio_diff'].mean()
+        # Filtra il DataFrame per selezionare solo le righe dove 'fascia_oraria' è '09:00-18:00'
+        df_filtrato = df[df['fascia_oraria'] == '09:00-18:00']
+
+        # Calcola la media della colonna 'kilowatt_ufficio_diff' per il DataFrame filtrato
+        media_kilowatt = df_filtrato['kilowatt_ufficio_diff'].mean()
 
         # Applicazione di una espressione lambda che usa if-elif-else direttamente
-        df['is_smartworking'] = df['kilowatt_ufficio_diff'].apply(
-            lambda kilowatt: None if pd.isnull(kilowatt)
-            else 'OK' if kilowatt > media_kilowatt
-            else 'KO'
+        df['is_smartworking'] = df.apply(
+            lambda row: 'NA' if pd.isnull(row['kilowatt_ufficio_diff'])
+            else 'OK' if row['kilowatt_ufficio_diff'] > media_kilowatt and row['fascia_oraria'] == '09:00-18:00'
+            else 'KO',
+            axis=1
         )
-
         # Aggiornamento delle tabelle con i valori 'is_smartworking'
         update_queries = {
+            'aggregazione_ora': """
+                UPDATE harpa.aggregazione_ora
+                SET is_smartworking = %s
+                WHERE giorno = %s AND fascia_oraria = %s;
+            """,
             'aggregazione_giorno': """
                 UPDATE harpa.aggregazione_giorno
                 SET is_smartworking = %s
@@ -70,9 +76,20 @@ def smartworking_insert(cur):
             """
         }
 
+        # Prepara i dati per l'aggiornamento batch
+        update_data_aggregazione_ora = []
+        update_data_aggregazione_giorno = []
+        update_data_aggregazione_fascia_oraria = []
+
         for i, row in df.iterrows():
-            cur.execute(update_queries['aggregazione_giorno'], (row['is_smartworking'], row['giorno']))
-            cur.execute(update_queries['aggregazione_fascia_oraria'], (row['is_smartworking'], row['giorno'], row['fascia_oraria']))
+            update_data_aggregazione_ora.append((row['is_smartworking'], row['giorno'], row['fascia_oraria']))
+            update_data_aggregazione_giorno.append((row['is_smartworking'], row['giorno']))
+            update_data_aggregazione_fascia_oraria.append((row['is_smartworking'], row['giorno'], row['fascia_oraria']))
+
+        # Esegui gli aggiornamenti in batch
+        cur.executemany(update_queries['aggregazione_ora'], update_data_aggregazione_ora)
+        cur.executemany(update_queries['aggregazione_giorno'], update_data_aggregazione_giorno)
+        cur.executemany(update_queries['aggregazione_fascia_oraria'], update_data_aggregazione_fascia_oraria)
 
         # Inserimento dei dati aggregati nelle tabelle mensili e annuali
         cur.execute("""
@@ -109,5 +126,3 @@ def smartworking_insert(cur):
         cur.execute("ROLLBACK;")
         print(f"Errore nell'aggiunta dello smart working: {e}")
         raise
-
-
