@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./pyscript/ ./
 
 # Copia il file .env dal percorso appropriato
-COPY ./env/.env ./
+COPY ./env/ /app/env/
+
 
 # Comando per eseguire lo script
 CMD ["python", "main.py"]

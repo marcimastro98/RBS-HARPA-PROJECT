@@ -1,11 +1,4 @@
-from datetime import datetime
-
-import numpy as np
 import pandas as pd
-from openmeteo_requests import Client
-import requests_cache
-from psycopg2.extras import execute_values
-from retry_requests import retry
 
 
 def smartworking_insert(cur):
