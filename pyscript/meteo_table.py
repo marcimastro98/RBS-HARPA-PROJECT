@@ -4,50 +4,10 @@ import time
 
 import pandas as pd
 import psycopg2
-from dotenv import load_dotenv
-from psycopg2._psycopg import OperationalError
+
 from psycopg2.extras import execute_values
 from meteoAPI import meteo_data_forecast
 import smartworkingdays
-
-
-def db_conn():
-    # Risalire di una cartella rispetto alla directory corrente dello script
-    base_dir = os.path.dirname(os.path.dirname(__file__))
-    # Combinare il percorso base con la cartella 'env' e il nome del file '.env'
-    env_path = os.path.join(base_dir, 'env', '.env')
-
-    load_dotenv(env_path)
-    db_host = os.getenv('DB_HOST')
-    db_user = os.getenv('DB_USER')
-    db_password = os.getenv('DB_PASSWORD')
-    db_name = os.getenv('DB_NAME')
-    db_port = os.getenv('DB_PORT')
-    for _ in range(5):
-        try:
-            conn = psycopg2.connect(
-                host=db_host,
-                dbname=db_name,
-                user=db_user,
-                password=db_password,
-                port=db_port
-            )
-
-            cur = conn.cursor()
-
-            cur.execute("""
-                    SELECT tablename FROM pg_catalog.pg_tables
-                    WHERE schemaname = 'harpa';
-                """)
-
-            # Retrieve query results
-            tables = cur.fetchall()
-            print(f"Connection to {db_name} established, tables:{tables}")
-            return [tables, cur, conn]
-        except OperationalError as e:
-            print(f"Errore: {e}"
-                  f"Connessione fallita, nuovo tentativo in {10} secondi.")
-            time.sleep(10)
 
 
 def update_tables_meteo_data(tables, cur, conn):
@@ -99,13 +59,14 @@ def update_tables_meteo_data(tables, cur, conn):
 
                 # Creare una query di aggiornamento batch
                 batch_update_query = """
-                    UPDATE HARPA.aggregazione_ora
-                    SET solo_ora = data.solo_ora, giorno = data.giorno, fascia_oraria = data.fascia_oraria
-                    FROM (VALUES %s) AS data(giorno, fascia_oraria, solo_ora, data_ora_completa)
-                    WHERE HARPA.aggregazione_ora.ora = data.data_ora_completa;
-                """
+                                    UPDATE HARPA.aggregazione_ora
+                                    SET solo_ora = data.solo_ora, giorno = data.giorno, fascia_oraria = data.fascia_oraria
+                                    FROM (VALUES %s) AS data(giorno, fascia_oraria, solo_ora, data_ora_completa)
+                                    WHERE HARPA.aggregazione_ora.ora = data.data_ora_completa;
+                                """
                 execute_values(cur, batch_update_query, batch_update_data)
-                # Preparaew i dati per l'aggiornamento batch
+                # Preparare i dati per l'aggiornamento batch
+
                 update_data = []
                 for index, row in meteo_data.iterrows():
                     update_data.append((row['temperature_2m'], row['rain'], row['cloud_cover'],
@@ -135,8 +96,6 @@ def update_tables_meteo_data(tables, cur, conn):
 
             except psycopg2.Error as e:
                 print(f"Error querying table {table[0]}: {e}")
-
-                # Commit the changes
                 conn.commit()
         elif table[0] == 'aggregazione_fascia_oraria':
             try:
@@ -200,7 +159,6 @@ def update_tables_meteo_data(tables, cur, conn):
                 """
                 try:
                     execute_values(cur, update_query, update_data)
-                    # print(cur.mogrify(update_query, [update_data]).decode('utf-8'))
                     conn.commit()
                     print(f"Table {table[0]} correctly updated ")
                 except Exception as e:
@@ -266,7 +224,6 @@ def update_tables_meteo_data(tables, cur, conn):
 
                 try:
                     execute_values(cur, update_query, update_data)
-                    # print(cur.mogrify(update_query, [update_data]).decode('utf-8'))
                     conn.commit()
                     print(f"Table {table[0]} correctly updated ")
                 except Exception as e:
@@ -321,7 +278,6 @@ def update_tables_meteo_data(tables, cur, conn):
 
                 try:
                     execute_values(cur, update_query, update_data)
-                    # print(cur.mogrify(update_query, [update_data]).decode('utf-8'))
                     conn.commit()
                     print(f"Table {table[0]} correctly updated ")
                 except Exception as e:
