@@ -65,10 +65,15 @@ CREATE TABLE HARPA.aggregazione_fascia_oraria AS
 SELECT
   DATE(data) AS giorno,
   TO_CHAR(data, 'Day') AS giorno_settimana,
+--  CASE
+--    WHEN EXTRACT(HOUR FROM data) >= 0 AND EXTRACT(HOUR FROM data) < 9 THEN '00:00-09:00'
+--    WHEN EXTRACT(HOUR FROM data) >= 9 AND EXTRACT(HOUR FROM data) < 19 THEN '09:00-19:00'
+--    WHEN EXTRACT(HOUR FROM data) >= 19 THEN '19:00-00:00'
+--  END AS fascia_oraria,
   CASE
-    WHEN EXTRACT(HOUR FROM data) >= 0 AND EXTRACT(HOUR FROM data) < 9 THEN '00:00-09:00'
-    WHEN EXTRACT(HOUR FROM data) >= 9 AND EXTRACT(HOUR FROM data) < 18 THEN '09:00-18:00'
-    WHEN EXTRACT(HOUR FROM data) >= 18 THEN '18:00-00:00'
+    WHEN EXTRACT(HOUR FROM data) >= 0 AND EXTRACT(HOUR FROM data) < 9 THEN '1' -- 00:00-09:00
+    WHEN EXTRACT(HOUR FROM data) >= 9 AND EXTRACT(HOUR FROM data) < 19 THEN '2' -- 09:00-19:00
+    WHEN EXTRACT(HOUR FROM data) >= 19 THEN '3' -- 19:00-00:00
   END AS fascia_oraria,
   MAX(CASE WHEN source = 'data_center' THEN kilowatt END) -
   MIN(CASE WHEN source = 'data_center' THEN kilowatt END) AS kilowatt_data_center_diff,
