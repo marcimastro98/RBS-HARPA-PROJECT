@@ -62,39 +62,46 @@ GROUP BY ora, TO_CHAR(DATE_TRUNC('hour', sub.data), 'Day');
 
 
 CREATE TABLE HARPA.aggregazione_fascia_oraria AS
-SELECT
-  DATE(data) AS giorno,
-  TO_CHAR(data, 'Day') AS giorno_settimana,
---  CASE
---    WHEN EXTRACT(HOUR FROM data) >= 0 AND EXTRACT(HOUR FROM data) < 9 THEN '00:00-09:00'
---    WHEN EXTRACT(HOUR FROM data) >= 9 AND EXTRACT(HOUR FROM data) < 19 THEN '09:00-19:00'
---    WHEN EXTRACT(HOUR FROM data) >= 19 THEN '19:00-00:00'
---  END AS fascia_oraria,
-  CASE
-    WHEN EXTRACT(HOUR FROM data) >= 0 AND EXTRACT(HOUR FROM data) < 9 THEN '1' -- 00:00-09:00
-    WHEN EXTRACT(HOUR FROM data) >= 9 AND EXTRACT(HOUR FROM data) < 19 THEN '2' -- 09:00-19:00
-    WHEN EXTRACT(HOUR FROM data) >= 19 THEN '3' -- 19:00-00:00
-  END AS fascia_oraria,
-  MAX(CASE WHEN source = 'data_center' THEN kilowatt END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt END) AS kilowatt_data_center_diff,
-  MAX(CASE WHEN source = 'edificio' THEN kilowatt END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt END) AS kilowatt_edificio_diff,
-  MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt END) AS kilowatt_fotovoltaico_diff,
-  (MAX(CASE WHEN source = 'edificio' THEN kilowatt END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt END)) -
-  (MAX(CASE WHEN source = 'data_center' THEN kilowatt END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt END)) +
-  (MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt END)) AS kilowatt_ufficio_diff
+SELECT 
+
+giorno,
+giorno_settimana,
+fascia_oraria,
+MAX(kilowatt_edificio) - MIN(kilowatt_edificio) AS kilowatt_edificio_diff,
+MAX(kilowatt_data_center) - MIN(kilowatt_data_center) AS kilowatt_data_center_diff,
+MAX(kilowatt_fotovoltaico) - MIN(kilowatt_fotovoltaico) AS kilowatt_fotovoltaico_diff,
+
+(MAX(kilowatt_edificio) - MIN(kilowatt_edificio)) -
+(MAX(kilowatt_data_center) - MIN(kilowatt_data_center)) +
+(COALESCE(MAX(kilowatt_fotovoltaico), 0) - coalesce(MIN(kilowatt_fotovoltaico), 0)) AS kilowatt_ufficio
+
 FROM (
-  SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
-  UNION ALL
-  SELECT data, kilowatt, 'edificio' AS source FROM HARPA.edificio
-  UNION ALL
-  SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
-) AS sub
-GROUP BY giorno, TO_CHAR(data, 'Day'), fascia_oraria;
+
+SELECT 
+
+DATE(e.data) as giorno,
+TO_CHAR(e.data, 'Day') AS giorno_settimana,
+CASE
+    WHEN EXTRACT(HOUR FROM e.data) >= 0 AND EXTRACT(HOUR FROM e.data) < 9 THEN '1' -- 00:00-09:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 9 AND EXTRACT(HOUR FROM e.data) < 19 THEN '2' -- 09:00-19:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 19 THEN '3' -- 19:00-00:00
+END AS fascia_oraria,
+
+e.kilowatt AS kilowatt_edificio,
+dc.kilowatt AS kilowatt_data_center,
+f.kilowatt AS kilowatt_fotovoltaico
+
+FROM harpa.edificio e 
+
+LEFT JOIN harpa.data_center dc 
+ON e.data = dc.data
+
+LEFT JOIN harpa.fotovoltaico f 
+ON e.data = f.data
+
+) as TMP
+
+GROUP BY giorno, giorno_settimana, fascia_oraria;
 
 
 
