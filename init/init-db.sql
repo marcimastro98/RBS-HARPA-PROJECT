@@ -71,9 +71,9 @@ MAX(kilowatt_edificio) - MIN(kilowatt_edificio) AS kilowatt_edificio_diff,
 MAX(kilowatt_data_center) - MIN(kilowatt_data_center) AS kilowatt_data_center_diff,
 MAX(kilowatt_fotovoltaico) - MIN(kilowatt_fotovoltaico) AS kilowatt_fotovoltaico_diff,
 
-(MAX(kilowatt_edificio) - MIN(kilowatt_edificio)) -
-(MAX(kilowatt_data_center) - MIN(kilowatt_data_center)) +
-(COALESCE(MAX(kilowatt_fotovoltaico), 0) - coalesce(MIN(kilowatt_fotovoltaico), 0)) AS kilowatt_ufficio_diff
+(COALESCE(MAX(kilowatt_edificio), 0) - COALESCE(MIN(kilowatt_edificio), 0)) -
+(COALESCE(MAX(kilowatt_data_center), 0) - COALESCE(MIN(kilowatt_data_center), 0)) +
+(COALESCE(MAX(kilowatt_fotovoltaico), 0) - COALESCE(MIN(kilowatt_fotovoltaico), 0)) AS kilowatt_ufficio_diff
 
 FROM (
 
