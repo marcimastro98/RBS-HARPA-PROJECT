@@ -73,7 +73,7 @@ MAX(kilowatt_fotovoltaico) - MIN(kilowatt_fotovoltaico) AS kilowatt_fotovoltaico
 
 (MAX(kilowatt_edificio) - MIN(kilowatt_edificio)) -
 (MAX(kilowatt_data_center) - MIN(kilowatt_data_center)) +
-(COALESCE(MAX(kilowatt_fotovoltaico), 0) - coalesce(MIN(kilowatt_fotovoltaico), 0)) AS kilowatt_ufficio
+(COALESCE(MAX(kilowatt_fotovoltaico), 0) - coalesce(MIN(kilowatt_fotovoltaico), 0)) AS kilowatt_ufficio_diff
 
 FROM (
 
