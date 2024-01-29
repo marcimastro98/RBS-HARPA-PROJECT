@@ -68,6 +68,7 @@ giorno,
 TRIM(giorno_settimana) as giorno_settimana,
 giorno_settimana_num,
 fascia_oraria,
+fascia_oraria_num,
 MAX(kilowatt_edificio) - MIN(kilowatt_edificio) AS kilowatt_edificio_diff,
 MAX(kilowatt_data_center) - MIN(kilowatt_data_center) AS kilowatt_data_center_diff,
 MAX(kilowatt_fotovoltaico) - MIN(kilowatt_fotovoltaico) AS kilowatt_fotovoltaico_diff,
@@ -84,10 +85,15 @@ DATE(e.data) as giorno,
 TO_CHAR(e.data, 'Day') AS giorno_settimana,
 EXTRACT(DOW FROM e.data) AS giorno_settimana_num,
 CASE
-    WHEN EXTRACT(HOUR FROM e.data) >= 0 AND EXTRACT(HOUR FROM e.data) < 9 THEN '1' -- 00:00-09:00
-    WHEN EXTRACT(HOUR FROM e.data) >= 9 AND EXTRACT(HOUR FROM e.data) < 19 THEN '2' -- 09:00-19:00
-    WHEN EXTRACT(HOUR FROM e.data) >= 19 THEN '3' -- 19:00-00:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 0 AND EXTRACT(HOUR FROM e.data) < 9 THEN '00:00-09:00' -- 00:00-09:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 9 AND EXTRACT(HOUR FROM e.data) < 19 THEN '09:00-19:00' -- 09:00-19:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 19 THEN '19:00-00:00' -- 19:00-00:00
 END AS fascia_oraria,
+CASE
+    WHEN EXTRACT(HOUR FROM e.data) >= 0 AND EXTRACT(HOUR FROM e.data) < 9 THEN 1 -- 00:00-09:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 9 AND EXTRACT(HOUR FROM e.data) < 19 THEN 2 -- 09:00-19:00
+    WHEN EXTRACT(HOUR FROM e.data) >= 19 THEN 3 -- 19:00-00:00
+END AS fascia_oraria_num,
 
 e.kilowatt AS kilowatt_edificio,
 dc.kilowatt AS kilowatt_data_center,
@@ -103,7 +109,7 @@ ON e.data = f.data
 
 ) as TMP
 
-GROUP BY giorno, giorno_settimana, giorno_settimana_num, fascia_oraria;
+GROUP BY giorno, giorno_settimana, giorno_settimana_num, fascia_oraria, fascia_oraria_num;
 
 
 
