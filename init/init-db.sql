@@ -45,12 +45,19 @@ SELECT
   MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
   MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-  (MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END)) -
-  (MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END)) +
-  (MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END)) AS kilowatt_ufficio_diff
+(
+  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
+) -
+(
+  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
+) +
+(
+  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
+) AS kilowatt_ufficio_diff
+
 FROM (
   SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
   UNION ALL
@@ -124,12 +131,19 @@ SELECT
   MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
   MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-  (MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END)) -
-  (MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END)) +
-  (MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END)) AS kilowatt_ufficio_diff
+(
+  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
+) -
+(
+  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
+) +
+(
+  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
+) AS kilowatt_ufficio_diff
+
 FROM (
   SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
   UNION ALL
@@ -148,12 +162,19 @@ TO_CHAR(data, 'YYYY-MM') AS mese,
   MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
   MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-  (MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END)) -
-  (MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END)) +
-  (MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END)) AS kilowatt_ufficio_diff
+(
+  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
+) -
+(
+  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
+) +
+(
+  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
+) AS kilowatt_ufficio_diff
+
 FROM (
   SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
   UNION ALL
@@ -172,12 +193,19 @@ SELECT
   MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
   MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
   MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-  (MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END)) -
-  (MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END)) +
-  (MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END)) AS kilowatt_ufficio_diff
+(
+  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
+) -
+(
+  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
+) +
+(
+  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
+  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
+) AS kilowatt_ufficio_diff
+
 FROM (
   SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
   UNION ALL
