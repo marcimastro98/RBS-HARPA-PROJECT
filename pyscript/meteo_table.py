@@ -1,10 +1,6 @@
 import datetime
-import os
-import time
-
 import pandas as pd
 import psycopg2
-
 from psycopg2.extras import execute_values
 from meteoAPI import meteo_data_forecast
 import smartworkingdays
@@ -31,14 +27,14 @@ def update_tables_meteo_data(tables, cur, conn):
                 col_names = [desc[0] for desc in cur.description]
 
                 # Aggiungere le colonne se non esistono
-                columns_to_add = ['solo_ora', 'giorno', 'fascia_oraria', 'temperature', 'rain', 'cloud_cover',
+                columns_to_add = ['solo_ora', 'giorno', 'fascia_oraria_num', 'temperature', 'rain', 'cloud_cover',
                                   'relative_humidity_2m',
                                   'wind_speed_10m',
                                   'wind_direction_10m']
                 columns_to_alter = [col for col in columns_to_add if col not in col_names]
                 for col in columns_to_alter:
-                    if col == 'fascia_oraria':
-                        alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} text;"
+                    if col == 'fascia_oraria_num':
+                        alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} INTEGER;"
                     elif col == 'giorno':
                         alter_table_query = f"ALTER TABLE HARPA.aggregazione_ora ADD COLUMN {col} date;"
                     elif col == 'solo_ora':
@@ -60,8 +56,8 @@ def update_tables_meteo_data(tables, cur, conn):
                 # Creare una query di aggiornamento batch
                 batch_update_query = """
                                     UPDATE HARPA.aggregazione_ora
-                                    SET solo_ora = data.solo_ora, giorno = data.giorno, fascia_oraria = data.fascia_oraria
-                                    FROM (VALUES %s) AS data(giorno, fascia_oraria, solo_ora, data_ora_completa)
+                                    SET solo_ora = data.solo_ora, giorno = data.giorno, fascia_oraria_num = data.fascia_oraria_num
+                                    FROM (VALUES %s) AS data(giorno, fascia_oraria_num, solo_ora, data_ora_completa)
                                     WHERE HARPA.aggregazione_ora.ora = data.data_ora_completa;
                                 """
                 execute_values(cur, batch_update_query, batch_update_data)
@@ -110,18 +106,19 @@ def update_tables_meteo_data(tables, cur, conn):
                                                  end_date_str,
                                                  False,
                                                  None) if meteo_data is None else meteo_data
-                meteo_data_fascia_oraria = meteo_data
-                meteo_data_fascia_oraria['date'] = pd.to_datetime(meteo_data_fascia_oraria['date'])
-                meteo_data_fascia_oraria['only_date'] = meteo_data_fascia_oraria['date'].dt.date
-                meteo_data_fascia_oraria['only_time'] = meteo_data_fascia_oraria['date'].dt.time
-                meteo_data_fascia_oraria['fascia_oraria'] = meteo_data_fascia_oraria['only_time'].apply(
-                    categorizza_fascia_oraria)
-                colonne_numeriche = meteo_data_fascia_oraria.select_dtypes(include=['number'])
-                meteo_data_aggregata = (colonne_numeriche.groupby([meteo_data_fascia_oraria['only_date'],
-                                                                   meteo_data_fascia_oraria['fascia_oraria']])
-                                        .mean().reset_index())
+                # Assumiamo che 'meteo_data' sia un DataFrame con una colonna 'date' in formato stringa o timestamp
+                meteo_data['date'] = pd.to_datetime(meteo_data['date'])  # Convertire la colonna 'date' in datetime se non lo è già
+                meteo_data['only_date'] = meteo_data['date'].dt.date  # Estrai la data
+                meteo_data['fascia_oraria_num'] = meteo_data['date'].dt.time.apply(
+                    categorizza_fascia_oraria)  # Categorizzare la fascia oraria
+                # Selezionare solo le colonne numeriche, escludendo 'fascia_oraria_num' se è presente
+                colonne_numeriche = meteo_data.select_dtypes(include=['number'])
+                if 'fascia_oraria_num' in colonne_numeriche.columns:
+                    colonne_numeriche.drop('fascia_oraria_num', axis=1, inplace=True)
 
-                # Controllare le colonne esistenti
+                # Eseguire il raggruppamento e calcolare la media
+                meteo_data_aggregata = colonne_numeriche.groupby(
+                    [meteo_data['only_date'], meteo_data['fascia_oraria_num']]).mean().reset_index()
                 cur.execute("SELECT * FROM HARPA.aggregazione_fascia_oraria LIMIT 0")
                 col_names = [desc[0] for desc in cur.description]
 
@@ -142,7 +139,7 @@ def update_tables_meteo_data(tables, cur, conn):
                                         row['wind_speed_10m'],
                                         row['wind_direction_10m'],
                                         row['only_date'],
-                                        row['fascia_oraria']))
+                                        row['fascia_oraria_num']))
                 # Eseguire l'aggiornamento batch
                 update_query = """
                     UPDATE HARPA.aggregazione_fascia_oraria
@@ -153,9 +150,9 @@ def update_tables_meteo_data(tables, cur, conn):
                         wind_speed_10m = data.wind_speed_10m,
                         wind_direction_10m = data.wind_direction_10m
                     FROM (VALUES %s) AS data(temperature_2m, rain, cloud_cover, relative_humidity_2m, 
-                    wind_speed_10m, wind_direction_10m, only_date, fascia_oraria)
+                    wind_speed_10m, wind_direction_10m, only_date, fascia_oraria_num)
                     WHERE HARPA.aggregazione_fascia_oraria.giorno = data.only_date
-                    AND HARPA.aggregazione_fascia_oraria.fascia_oraria = data.fascia_oraria;
+                    AND HARPA.aggregazione_fascia_oraria.fascia_oraria_num = data.fascia_oraria_num;
                 """
                 try:
                     execute_values(cur, update_query, update_data)
@@ -347,8 +344,8 @@ def update_tables_meteo_data(tables, cur, conn):
 
 def categorizza_fascia_oraria(orario):
     if orario < pd.Timestamp('09:00').time():
-        return '00:00-09:00'
-    elif orario < pd.Timestamp('18:00').time():
-        return '09:00-18:00'
+        return 1
+    elif orario < pd.Timestamp('19:00').time():
+        return 2
     else:
-        return '18:00-00:00'
+        return 3

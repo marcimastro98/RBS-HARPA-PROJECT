@@ -1,14 +1,14 @@
 import os
 import time
-
 import psycopg2
 from dotenv import load_dotenv
-from psycopg2._psycopg import OperationalError
+from psycopg2 import OperationalError
 
 
 def db_conn():
-    # Risalire di una cartella rispetto alla directory corrente dello script
-    base_dir = os.path.dirname(os.path.dirname(__file__))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Risalire di 2 cartelle rispetto alla directory corrente dello script
+    base_dir = os.path.dirname(os.path.dirname(script_dir))
     # Combinare il percorso base con la cartella 'env' e il nome del file '.env'
     env_path = os.path.join(base_dir, 'env', '.env')
 

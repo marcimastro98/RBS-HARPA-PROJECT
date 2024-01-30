@@ -17,7 +17,7 @@ All'interno del database trovete diverse tabelle fra cui:
 - Datacenter: Contiene i dati originali del csv relativo al Datacenter
 - Fotovoltaico: Contiene i dati originali del csv relativo al fotovoltaico
 - aggregazione_ora: Tabelle relativa alla media dei kilowatt delle strutture per ora e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
-- aggregazione_fascia_oraria: Tabelle relativa alla media dei kilowatt delle strutture per fascia oraria (00:00 - 09:00, 09:00 - 18:00, 18:00 - 00:00) e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
+- aggregazione_fascia_oraria: Tabelle relativa alla media dei kilowatt delle strutture per fascia oraria (00:00 - 09:00, 09:00 - 19:00, 18:00 - 00:00) e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
 - aggregazione_giorno: Tabelle relativa alla media dei kilowatt delle strutture per giorno e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
 - _aggregazione_mese: Tabelle relativa alla media dei kilowatt delle strutture per mese e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)
 - aggregazione_anno: Tabelle relativa alla media dei kilowatt delle strutture per anno e dei dati meteo (temperatura, pioggia in millimetri, copertura del cielo in %)

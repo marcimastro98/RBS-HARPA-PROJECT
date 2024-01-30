@@ -1,12 +1,8 @@
-import os
 from datetime import datetime, timedelta
-
-import pandas as pd
-from openmeteo_requests import Client
-import requests_cache
-from retry_requests import retry
-
 import openmeteo_requests
+import requests_cache
+import pandas as pd
+from retry_requests import retry
 
 
 def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_meteo_data):
