@@ -1,27 +1,31 @@
 CREATE SCHEMA IF NOT EXISTS HARPA;
 
-
-
--- Creazione delle tabelle con una colonna timestamp anziché date per avere anche l'orario
-CREATE TABLE HARPA.edificio (
+-- Creazione delle tabelle per i consumi energetici
+CREATE TABLE IF NOT EXISTS HARPA.edificio (
     id SERIAL PRIMARY KEY,
     data TIMESTAMP NOT NULL,
     kilowatt NUMERIC(10, 2)
 );
 
-CREATE TABLE HARPA.data_center (
+CREATE TABLE IF NOT EXISTS HARPA.data_center (
     id SERIAL PRIMARY KEY,
     data TIMESTAMP NOT NULL,
     kilowatt NUMERIC(10, 2)
 );
 
-CREATE TABLE HARPA.fotovoltaico (
+CREATE TABLE IF NOT EXISTS HARPA.fotovoltaico (
     id SERIAL PRIMARY KEY,
     data TIMESTAMP NOT NULL,
     kilowatt NUMERIC(10, 2)
 );
 
+CREATE TABLE IF NOT EXISTS HARPA.ufficio (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL,
+    kilowatt NUMERIC(10, 2)
+);
 
+-- Importazione dei dati nelle tabelle
 COPY HARPA.data_center(data, kilowatt)
 FROM '/csv/Generale_Data_Center_Energia_Attiva.csv'
 WITH (FORMAT csv, HEADER true, DELIMITER ',');
@@ -34,183 +38,333 @@ COPY HARPA.fotovoltaico(data, kilowatt)
 FROM '/csv/Impianto_Fotovoltaico_Energia_Attiva_Prodotta.csv'
 WITH (FORMAT csv, HEADER true, DELIMITER ',');
 
+-- Popolamento della tabella ufficio con i dati calcolati
+INSERT INTO HARPA.ufficio (data, kilowatt)
+SELECT DISTINCT
+    COALESCE(e.data, dc.data, f.data) AS data,
+    (COALESCE(e.kilowatt, 0) - COALESCE(dc.kilowatt, 0) + COALESCE(f.kilowatt, 0)) AS kilowatt
+FROM HARPA.edificio e
+FULL OUTER JOIN HARPA.data_center dc ON e.data = dc.data
+FULL OUTER JOIN HARPA.fotovoltaico f ON COALESCE(e.data, dc.data) = f.data
+ORDER BY COALESCE(e.data, dc.data, f.data);
 
-CREATE TABLE HARPA.aggregazione_ora AS
+CREATE TABLE IF NOT EXISTS HARPA.unione_dataset (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL,
+    kilowatt_edificio NUMERIC(10, 2),
+    kilowatt_data_center NUMERIC(10, 2),
+    kilowatt_fotovoltaico NUMERIC(10, 2),
+    kilowatt_ufficio NUMERIC(10, 2),
+    fascia_oraria INTEGER,
+    giorno_settimana INTEGER
+);
+
+-- Inserimento dei dati unificati nella tabella unione_dataset, con il calcolo aggiornato per kilowatt_ufficio
+INSERT INTO HARPA.unione_dataset (data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio, fascia_oraria, giorno_settimana)
 SELECT
-  DATE_TRUNC('hour', data) AS ora,
-  TO_CHAR(DATE_TRUNC('hour', data), 'Day') AS giorno_settimana,
-  MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
-  MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
-  MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-(
-  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
-) -
-(
-  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
-) +
-(
-  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
-) AS kilowatt_ufficio_diff
+    COALESCE(e.data, dc.data, f.data) AS data,
+    COALESCE(e.kilowatt, 0) AS kilowatt_edificio,
+    COALESCE(dc.kilowatt, 0) AS kilowatt_data_center,
+    COALESCE(f.kilowatt, 0) AS kilowatt_fotovoltaico,
+    COALESCE(e.kilowatt, 0) - COALESCE(dc.kilowatt, 0) + COALESCE(f.kilowatt, 0) AS kilowatt_ufficio,
+    CASE
+        WHEN EXTRACT(HOUR FROM COALESCE(e.data, dc.data, f.data)) < 9 THEN 1
+        WHEN EXTRACT(HOUR FROM COALESCE(e.data, dc.data, f.data)) >= 9 AND EXTRACT(HOUR FROM COALESCE(e.data, dc.data, f.data)) < 19 THEN 2
+        WHEN EXTRACT(HOUR FROM COALESCE(e.data, dc.data, f.data)) >= 19 THEN 3
+    END AS fascia_oraria,
+    EXTRACT(DOW FROM COALESCE(e.data, dc.data, f.data)) AS giorno_settimana
+FROM
+    HARPA.edificio e
+FULL OUTER JOIN HARPA.data_center dc ON e.data = dc.data
+FULL OUTER JOIN HARPA.fotovoltaico f ON e.data = f.data
+WHERE e.data IS NOT NULL AND dc.data IS NOT NULL
+ORDER BY data;
 
-FROM (
-  SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
-  UNION ALL
-  SELECT data, kilowatt, 'edificio' AS source FROM HARPA.edificio
-  UNION ALL
-  SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
-) AS sub
-GROUP BY ora, TO_CHAR(DATE_TRUNC('hour', sub.data), 'Day');
+-- Rimozione dei duplicati in unione_dataset
+DELETE FROM HARPA.unione_dataset
+WHERE id IN (
+    SELECT id FROM HARPA.unione_dataset
+    EXCEPT
+    SELECT max(id)
+    FROM HARPA.unione_dataset
+    GROUP BY data
+);
+
+-- Creazione delle tabelle di aggregazione
+CREATE TABLE IF NOT EXISTS HARPA.aggregazione_ora (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL UNIQUE,
+    kilowatt_edificio NUMERIC(10, 2),
+    kilowatt_data_center NUMERIC(10, 2),
+    kilowatt_fotovoltaico NUMERIC(10, 2),
+    kilowatt_ufficio NUMERIC(10, 2),
+    giorno_settimana INTEGER,
+    temperature_2m NUMERIC(10, 2),
+    rain NUMERIC(10, 2),
+    cloud_cover NUMERIC(10, 2),
+    relative_humidity_2m NUMERIC(10, 2),
+    wind_speed_10m NUMERIC(10, 2),
+    wind_direction_10m NUMERIC(10, 2)
+);
+
+CREATE TABLE IF NOT EXISTS HARPA.aggregazione_giorno (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL UNIQUE,
+    kilowatt_edificio NUMERIC(10, 2),
+    kilowatt_data_center NUMERIC(10, 2),
+    kilowatt_fotovoltaico NUMERIC(10, 2),
+    kilowatt_ufficio NUMERIC(10, 2),
+    giorno_settimana INTEGER,
+    temperature_2m NUMERIC(10, 2),
+    rain NUMERIC(10, 2),
+    cloud_cover NUMERIC(10, 2),
+    relative_humidity_2m NUMERIC(10, 2),
+    wind_speed_10m NUMERIC(10, 2),
+    wind_direction_10m NUMERIC(10, 2)
+);
+
+CREATE TABLE IF NOT EXISTS HARPA.aggregazione_mese (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL UNIQUE,
+    kilowatt_edificio NUMERIC(10, 2),
+    kilowatt_data_center NUMERIC(10, 2),
+    kilowatt_fotovoltaico NUMERIC(10, 2),
+    kilowatt_ufficio NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    rain NUMERIC(10, 2),
+    cloud_cover NUMERIC(10, 2),
+    relative_humidity_2m NUMERIC(10, 2),
+    wind_speed_10m NUMERIC(10, 2),
+    wind_direction_10m NUMERIC(10, 2)
+);
+
+CREATE TABLE IF NOT EXISTS HARPA.aggregazione_anno (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL UNIQUE,
+    kilowatt_edificio NUMERIC(10, 2),
+    kilowatt_data_center NUMERIC(10, 2),
+    kilowatt_fotovoltaico NUMERIC(10, 2),
+    kilowatt_ufficio NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    rain NUMERIC(10, 2),
+    cloud_cover NUMERIC(10, 2),
+    relative_humidity_2m NUMERIC(10, 2),
+    wind_speed_10m NUMERIC(10, 2),
+    wind_direction_10m NUMERIC(10, 2)
+);
+
+CREATE TABLE IF NOT EXISTS HARPA.aggregazione_fascia_oraria (
+    id SERIAL PRIMARY KEY,
+    data DATE NOT NULL,
+    fascia_oraria INTEGER,
+    kilowatt_edificio NUMERIC(10, 2),
+    kilowatt_data_center NUMERIC(10, 2),
+    kilowatt_fotovoltaico NUMERIC(10, 2),
+    kilowatt_ufficio NUMERIC(10, 2),
+    giorno_settimana INTEGER,
+    temperature_2m NUMERIC(10, 2),
+    rain NUMERIC(10, 2),
+    cloud_cover NUMERIC(10, 2),
+    relative_humidity_2m NUMERIC(10, 2),
+    wind_speed_10m NUMERIC(10, 2),
+    wind_direction_10m NUMERIC(10, 2),
+    UNIQUE (data, fascia_oraria)
+);
+
+-- Inserimento dei dati aggregati nelle tabelle di aggregazione
+-- Inserimento dei dati aggregati per ogni ora
+INSERT INTO HARPA.aggregazione_ora (
+    data,
+    kilowatt_edificio,
+    kilowatt_data_center,
+    kilowatt_fotovoltaico,
+    kilowatt_ufficio,
+    giorno_settimana
+)
+SELECT DISTINCT
+    DATE_TRUNC('hour', data) AS data,
+    LAST_VALUE(kilowatt_edificio) OVER w - FIRST_VALUE(kilowatt_edificio) OVER w AS differenza_kilowatt_edificio,
+    LAST_VALUE(kilowatt_data_center) OVER w - FIRST_VALUE(kilowatt_data_center) OVER w AS differenza_kilowatt_data_center,
+    LAST_VALUE(kilowatt_fotovoltaico) OVER w - FIRST_VALUE(kilowatt_fotovoltaico) OVER w AS differenza_kilowatt_fotovoltaico,
+    LAST_VALUE(kilowatt_ufficio) OVER w - FIRST_VALUE(kilowatt_ufficio) OVER w AS differenza_kilowatt_ufficio,
+    EXTRACT(DOW FROM data) AS giorno_settimana
+FROM HARPA.unione_dataset
+WINDOW w AS (
+    PARTITION BY DATE_TRUNC('hour', data), EXTRACT(DOW FROM data)
+    ORDER BY data
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+)
+ORDER BY data;
 
 
-CREATE TABLE HARPA.aggregazione_fascia_oraria AS
-SELECT 
-
-giorno,
-TRIM(giorno_settimana) as giorno_settimana,
-giorno_settimana_num,
-fascia_oraria,
-fascia_oraria_num,
-MAX(kilowatt_edificio) - MIN(kilowatt_edificio) AS kilowatt_edificio_diff,
-MAX(kilowatt_data_center) - MIN(kilowatt_data_center) AS kilowatt_data_center_diff,
-MAX(kilowatt_fotovoltaico) - MIN(kilowatt_fotovoltaico) AS kilowatt_fotovoltaico_diff,
-
-(COALESCE(MAX(kilowatt_edificio), 0) - COALESCE(MIN(kilowatt_edificio), 0)) -
-(COALESCE(MAX(kilowatt_data_center), 0) - COALESCE(MIN(kilowatt_data_center), 0)) +
-(COALESCE(MAX(kilowatt_fotovoltaico), 0) - COALESCE(MIN(kilowatt_fotovoltaico), 0)) AS kilowatt_ufficio_diff
-
-FROM (
-
-SELECT 
-
-DATE(e.data) as giorno,
-TO_CHAR(e.data, 'Day') AS giorno_settimana,
-EXTRACT(DOW FROM e.data) AS giorno_settimana_num,
-CASE
-    WHEN EXTRACT(HOUR FROM e.data) >= 0 AND EXTRACT(HOUR FROM e.data) < 9 THEN '00:00-09:00' -- 00:00-09:00
-    WHEN EXTRACT(HOUR FROM e.data) >= 9 AND EXTRACT(HOUR FROM e.data) < 19 THEN '09:00-19:00' -- 09:00-19:00
-    WHEN EXTRACT(HOUR FROM e.data) >= 19 THEN '19:00-00:00' -- 19:00-00:00
-END AS fascia_oraria,
-CASE
-    WHEN EXTRACT(HOUR FROM e.data) >= 0 AND EXTRACT(HOUR FROM e.data) < 9 THEN 1 -- 00:00-09:00
-    WHEN EXTRACT(HOUR FROM e.data) >= 9 AND EXTRACT(HOUR FROM e.data) < 19 THEN 2 -- 09:00-19:00
-    WHEN EXTRACT(HOUR FROM e.data) >= 19 THEN 3 -- 19:00-00:00
-END AS fascia_oraria_num,
-
-e.kilowatt AS kilowatt_edificio,
-dc.kilowatt AS kilowatt_data_center,
-f.kilowatt AS kilowatt_fotovoltaico
-
-FROM harpa.edificio e 
-
-LEFT JOIN harpa.data_center dc 
-ON e.data = dc.data
-
-LEFT JOIN harpa.fotovoltaico f 
-ON e.data = f.data
-
-) as TMP
-
-GROUP BY giorno, giorno_settimana, giorno_settimana_num, fascia_oraria, fascia_oraria_num;
+INSERT INTO HARPA.aggregazione_giorno (
+    data,
+    kilowatt_edificio,
+    kilowatt_data_center,
+    kilowatt_fotovoltaico,
+    kilowatt_ufficio,
+    giorno_settimana
+)
+SELECT DISTINCT
+    DATE_TRUNC('day', data) AS data,
+    LAST_VALUE(kilowatt_edificio) OVER w - FIRST_VALUE(kilowatt_edificio) OVER w AS differenza_kilowatt_edificio,
+    LAST_VALUE(kilowatt_data_center) OVER w - FIRST_VALUE(kilowatt_data_center) OVER w AS differenza_kilowatt_data_center,
+    LAST_VALUE(kilowatt_fotovoltaico) OVER w - FIRST_VALUE(kilowatt_fotovoltaico) OVER w AS differenza_kilowatt_fotovoltaico,
+    LAST_VALUE(kilowatt_ufficio) OVER w - FIRST_VALUE(kilowatt_ufficio) OVER w AS differenza_kilowatt_ufficio,
+    EXTRACT(DOW FROM data) AS giorno_settimana
+FROM HARPA.unione_dataset
+WINDOW w AS (
+    PARTITION BY DATE_TRUNC('day', data), EXTRACT(DOW FROM data)
+    ORDER BY data
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+)
+ORDER BY data;
 
 
-
-
-CREATE TABLE HARPA.aggregazione_giorno AS
+INSERT INTO HARPA.aggregazione_mese (
+    data,
+    kilowatt_edificio,
+    kilowatt_data_center,
+    kilowatt_fotovoltaico,
+    kilowatt_ufficio
+)
 SELECT
-  DATE_TRUNC('day', data)::date AS giorno,
-  TO_CHAR(data, 'Day') AS giorno_settimana,
-  MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
-  MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
-  MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-(
-  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
-) -
-(
-  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
-) +
-(
-  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
-) AS kilowatt_ufficio_diff
+    primo_giorno_mese AS data,
+    (ultimo_valore.kilowatt_edificio - primo_valore.kilowatt_edificio) AS kilowatt_edificio,
+    (ultimo_valore.kilowatt_data_center - primo_valore.kilowatt_data_center) AS kilowatt_data_center,
+    (ultimo_valore.kilowatt_fotovoltaico - primo_valore.kilowatt_fotovoltaico) AS kilowatt_fotovoltaico,
+    (ultimo_valore.kilowatt_ufficio - primo_valore.kilowatt_ufficio) AS kilowatt_ufficio
+FROM
+    (SELECT DATE_TRUNC('month', data) AS primo_giorno_mese FROM HARPA.unione_dataset GROUP BY primo_giorno_mese) AS mesi
+JOIN
+    (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio FROM HARPA.unione_dataset WHERE data IN (SELECT MIN(data) FROM HARPA.unione_dataset GROUP BY DATE_TRUNC('month', data))) AS primo_valore
+ON mesi.primo_giorno_mese = DATE_TRUNC('month', primo_valore.data)
+JOIN
+    (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio FROM HARPA.unione_dataset WHERE data IN (SELECT MAX(data) FROM HARPA.unione_dataset GROUP BY DATE_TRUNC('month', data))) AS ultimo_valore
+ON mesi.primo_giorno_mese = DATE_TRUNC('month', ultimo_valore.data)
+ORDER BY primo_giorno_mese;
 
-FROM (
-  SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
-  UNION ALL
-  SELECT data, kilowatt, 'edificio' AS source FROM HARPA.edificio
-  UNION ALL
-  SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
-) AS sub
-GROUP BY DATE_TRUNC('day', data)::date, TO_CHAR(data, 'Day');
 
-CREATE TABLE HARPA.aggregazione_mese AS
+
+INSERT INTO HARPA.aggregazione_anno (
+    data,
+    kilowatt_edificio,
+    kilowatt_data_center,
+    kilowatt_fotovoltaico,
+    kilowatt_ufficio
+)
 SELECT
-TO_CHAR(data, 'YYYY-MM') AS mese,
-  MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
-  MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
-  MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-(
-  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
-) -
-(
-  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
-) +
-(
-  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
-) AS kilowatt_ufficio_diff
+    primo_giorno_anno AS data,
+    (ultimo_valore.kilowatt_edificio - primo_valore.kilowatt_edificio) AS kilowatt_edificio,
+    (ultimo_valore.kilowatt_data_center - primo_valore.kilowatt_data_center) AS kilowatt_data_center,
+    (ultimo_valore.kilowatt_fotovoltaico - primo_valore.kilowatt_fotovoltaico) AS kilowatt_fotovoltaico,
+    (ultimo_valore.kilowatt_ufficio - primo_valore.kilowatt_ufficio) AS kilowatt_ufficio
+FROM
+    (SELECT DATE_TRUNC('year', data) AS primo_giorno_anno FROM HARPA.unione_dataset GROUP BY primo_giorno_anno) AS anni
+JOIN
+    (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio FROM HARPA.unione_dataset WHERE data IN (SELECT MIN(data) FROM HARPA.unione_dataset GROUP BY DATE_TRUNC('year', data))) AS primo_valore
+ON anni.primo_giorno_anno = DATE_TRUNC('year', primo_valore.data)
+JOIN
+    (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio FROM HARPA.unione_dataset WHERE data IN (SELECT MAX(data) FROM HARPA.unione_dataset GROUP BY DATE_TRUNC('year', data))) AS ultimo_valore
+ON anni.primo_giorno_anno = DATE_TRUNC('year', ultimo_valore.data)
+ORDER BY primo_giorno_anno;
 
-FROM (
-  SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
-  UNION ALL
-  SELECT data, kilowatt, 'edificio' AS source FROM HARPA.edificio
-  UNION ALL
-  SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
-) AS sub
-GROUP BY TO_CHAR(data, 'YYYY-MM');
 
-CREATE TABLE HARPA.aggregazione_anno AS
+INSERT INTO HARPA.aggregazione_fascia_oraria (
+    data,
+    kilowatt_edificio,
+    kilowatt_data_center,
+    kilowatt_fotovoltaico,
+    kilowatt_ufficio,
+    fascia_oraria,
+    giorno_settimana
+)
 SELECT
-  EXTRACT(YEAR FROM data) AS anno,
-  MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END) AS kilowatt_data_center_diff,
-  MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END) AS kilowatt_edificio_diff,
-  MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) -
-  MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END) AS kilowatt_fotovoltaico_diff,
-(
-  COALESCE(MAX(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'edificio' THEN kilowatt ELSE NULL END), 0)
-) -
-(
-  COALESCE(MAX(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'data_center' THEN kilowatt ELSE NULL END), 0)
-) +
-(
-  COALESCE(MAX(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0) -
-  COALESCE(MIN(CASE WHEN source = 'fotovoltaico' THEN kilowatt ELSE NULL END), 0)
-) AS kilowatt_ufficio_diff
+    DATE(giorni.primo) AS data,  -- Convertito in DATE
+    (ultimo_valore.kilowatt_edificio - primo_valore.kilowatt_edificio) AS kilowatt_edificio,
+    (ultimo_valore.kilowatt_data_center - primo_valore.kilowatt_data_center) AS kilowatt_data_center,
+    (ultimo_valore.kilowatt_fotovoltaico - primo_valore.kilowatt_fotovoltaico) AS kilowatt_fotovoltaico,
+    (ultimo_valore.kilowatt_ufficio - primo_valore.kilowatt_ufficio) AS kilowatt_ufficio,
+    giorni.fascia_oraria,
+    giorni.giorno_settimana
+FROM
+    (SELECT DATE(data) AS primo, fascia_oraria, giorno_settimana  -- Convertito in DATE
+     FROM HARPA.unione_dataset
+     GROUP BY DATE(data), fascia_oraria, giorno_settimana) AS giorni  -- Group by DATE(data)
+JOIN
+    (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio, fascia_oraria, giorno_settimana
+     FROM HARPA.unione_dataset
+     WHERE (data, fascia_oraria, giorno_settimana) IN
+         (SELECT MIN(data), fascia_oraria, giorno_settimana
+          FROM HARPA.unione_dataset
+          GROUP BY DATE(data), fascia_oraria, giorno_settimana)) AS primo_valore  -- Group by DATE(data)
+ON DATE(giorni.primo) = DATE(primo_valore.data)  -- Convertito in DATE
+AND giorni.fascia_oraria = primo_valore.fascia_oraria
+AND giorni.giorno_settimana = primo_valore.giorno_settimana
+JOIN
+    (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio, fascia_oraria, giorno_settimana
+     FROM HARPA.unione_dataset
+     WHERE (data, fascia_oraria, giorno_settimana) IN
+         (SELECT MAX(data), fascia_oraria, giorno_settimana
+          FROM HARPA.unione_dataset
+          GROUP BY DATE(data), fascia_oraria, giorno_settimana)) AS ultimo_valore  -- Group by DATE(data)
+ON DATE(giorni.primo) = DATE(ultimo_valore.data)  -- Convertito in DATE
+AND giorni.fascia_oraria = ultimo_valore.fascia_oraria
+AND giorni.giorno_settimana = ultimo_valore.giorno_settimana
+ORDER BY DATE(giorni.primo), giorni.fascia_oraria, giorni.giorno_settimana;  -- Convertito in DATE per ordinare
 
-FROM (
-  SELECT data, kilowatt, 'data_center' AS source FROM HARPA.data_center
-  UNION ALL
-  SELECT data, kilowatt, 'edificio' AS source FROM HARPA.edificio
-  UNION ALL
-  SELECT data, kilowatt, 'fotovoltaico' AS source FROM HARPA.fotovoltaico
-) AS sub
-GROUP BY EXTRACT(YEAR FROM data);
+DELETE FROM harpa.aggregazione_ora
+WHERE
+(kilowatt_ufficio IS NULL
+OR kilowatt_edificio IS NULL
+OR kilowatt_data_center IS NULL)
+OR
+(kilowatt_ufficio = 0
+AND kilowatt_edificio = 0
+AND kilowatt_data_center = 0);
+
+DELETE FROM harpa.aggregazione_giorno
+WHERE
+(kilowatt_ufficio IS NULL
+OR kilowatt_edificio IS NULL
+OR kilowatt_data_center IS NULL)
+OR
+(kilowatt_ufficio = 0
+AND kilowatt_edificio = 0
+AND kilowatt_data_center = 0);
+
+DELETE FROM harpa.aggregazione_mese
+WHERE
+(kilowatt_ufficio IS NULL
+OR kilowatt_edificio IS NULL
+OR kilowatt_data_center IS NULL)
+OR
+(kilowatt_ufficio = 0
+AND kilowatt_edificio = 0
+AND kilowatt_data_center = 0);
+
+DELETE FROM harpa.aggregazione_anno
+WHERE
+(kilowatt_ufficio IS NULL
+OR kilowatt_edificio IS NULL
+OR kilowatt_data_center IS NULL)
+OR
+(kilowatt_ufficio = 0
+AND kilowatt_edificio = 0
+AND kilowatt_data_center = 0);
+
+DELETE FROM harpa.aggregazione_fascia_oraria
+WHERE
+(kilowatt_ufficio IS NULL
+OR kilowatt_edificio IS NULL
+OR kilowatt_data_center IS NULL)
+OR
+(kilowatt_ufficio = 0
+AND kilowatt_edificio = 0
+AND kilowatt_data_center = 0);
+
+
+
+
+
+

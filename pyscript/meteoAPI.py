@@ -6,6 +6,9 @@ from retry_requests import retry
 
 
 def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_meteo_data):
+    start_date_meteo = start_date_meteo.strftime('%Y-%m-%d')
+    end_date_meteo = end_date_meteo.strftime('%Y-%m-%d')
+
     # Setup the Open-Meteo API client with cache and retry on error
     cache_session = requests_cache.CachedSession('.cache', expire_after=-1)
     retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
@@ -16,6 +19,7 @@ def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_m
     url = "https://archive-api.open-meteo.com/v1/archive"
     url2 = "https://api.open-meteo.com/v1/forecast"
     if future:
+        start_future_meteo_data = start_future_meteo_data.strftime('%Y-%m-%d')
         end_date = (datetime.today() + timedelta(days=14)).strftime('%Y-%m-%d')
     else:
         end_date = end_date_meteo
