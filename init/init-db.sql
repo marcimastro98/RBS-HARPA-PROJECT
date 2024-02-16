@@ -1,52 +1,83 @@
 CREATE SCHEMA IF NOT EXISTS HARPA;
 
--- Creazione delle tabelle per i consumi energetici
-CREATE TABLE IF NOT EXISTS HARPA.edificio (
-    id SERIAL PRIMARY KEY,
+-- Creazione delle tabelle temporanee
+CREATE TEMP TABLE IF NOT EXISTS temp_data_center (
     data TIMESTAMP NOT NULL,
     kilowatt NUMERIC(10, 2)
 );
 
-CREATE TABLE IF NOT EXISTS HARPA.data_center (
-    id SERIAL PRIMARY KEY,
+CREATE TEMP TABLE IF NOT EXISTS temp_edificio (
     data TIMESTAMP NOT NULL,
     kilowatt NUMERIC(10, 2)
 );
+
+CREATE TEMP TABLE IF NOT EXISTS temp_fotovoltaico (
+    data TIMESTAMP NOT NULL,
+    kilowatt NUMERIC(10, 2)
+);
+
+-- Importazione dei dati nei file CSV nelle tabelle temporanee
+COPY temp_data_center(data, kilowatt)
+FROM '/Dataset/Generale_Data_Center_Energia_Attiva_no_duplicates.csv'
+WITH (FORMAT csv, HEADER true, DELIMITER ',');
+
+COPY temp_edificio(data, kilowatt)
+FROM '/Dataset/Generale_Edificio_Energia_Attiva_no_duplicates.csv'
+WITH (FORMAT csv, HEADER true, DELIMITER ',');
+
+COPY temp_fotovoltaico(data, kilowatt)
+FROM '/Dataset/Impianto_Fotovoltaico_Energia_Attiva_Prodotta_no_duplicates.csv'
+WITH (FORMAT csv, HEADER true, DELIMITER ',');
+
+-- Creazione delle tabelle per i consumi energetici, se non esistono
+-- e popolamento da tabelle temporanee
+CREATE TABLE IF NOT EXISTS HARPA.data_center (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL UNIQUE,
+    kilowatt NUMERIC(10, 2)
+);
+INSERT INTO HARPA.data_center(data, kilowatt)
+SELECT data, kilowatt FROM temp_data_center
+ON CONFLICT (data) DO UPDATE SET kilowatt = EXCLUDED.kilowatt;
+
+CREATE TABLE IF NOT EXISTS HARPA.edificio (
+    id SERIAL PRIMARY KEY,
+    data TIMESTAMP NOT NULL UNIQUE,
+    kilowatt NUMERIC(10, 2)
+);
+INSERT INTO HARPA.edificio(data, kilowatt)
+SELECT data, kilowatt FROM temp_edificio
+ON CONFLICT (data) DO UPDATE SET kilowatt = EXCLUDED.kilowatt;
 
 CREATE TABLE IF NOT EXISTS HARPA.fotovoltaico (
     id SERIAL PRIMARY KEY,
-    data TIMESTAMP NOT NULL,
+    data TIMESTAMP NOT NULL UNIQUE,
     kilowatt NUMERIC(10, 2)
 );
+INSERT INTO HARPA.fotovoltaico(data, kilowatt)
+SELECT data, kilowatt FROM temp_fotovoltaico
+ON CONFLICT (data) DO UPDATE SET kilowatt = EXCLUDED.kilowatt;
+
 
 CREATE TABLE IF NOT EXISTS HARPA.ufficio (
     id SERIAL PRIMARY KEY,
-    data TIMESTAMP NOT NULL,
+    data TIMESTAMP NOT NULL UNIQUE,
     kilowatt NUMERIC(10, 2)
 );
 
--- Importazione dei dati nelle tabelle
-COPY HARPA.data_center(data, kilowatt)
-FROM '/csv/Generale_Data_Center_Energia_Attiva.csv'
-WITH (FORMAT csv, HEADER true, DELIMITER ',');
-
-COPY HARPA.edificio(data, kilowatt)
-FROM '/csv/Generale_Edificio_Energia_Attiva.csv'
-WITH (FORMAT csv, HEADER true, DELIMITER ',');
-
-COPY HARPA.fotovoltaico(data, kilowatt)
-FROM '/csv/Impianto_Fotovoltaico_Energia_Attiva_Prodotta.csv'
-WITH (FORMAT csv, HEADER true, DELIMITER ',');
-
 -- Popolamento della tabella ufficio con i dati calcolati
 INSERT INTO HARPA.ufficio (data, kilowatt)
-SELECT DISTINCT
-    COALESCE(e.data, dc.data, f.data) AS data,
+SELECT data, SUM(kilowatt) AS kilowatt
+FROM (
+    SELECT DISTINCT COALESCE(e.data, dc.data, f.data) AS data,
     (COALESCE(e.kilowatt, 0) - COALESCE(dc.kilowatt, 0) + COALESCE(f.kilowatt, 0)) AS kilowatt
-FROM HARPA.edificio e
-FULL OUTER JOIN HARPA.data_center dc ON e.data = dc.data
-FULL OUTER JOIN HARPA.fotovoltaico f ON COALESCE(e.data, dc.data) = f.data
-ORDER BY COALESCE(e.data, dc.data, f.data);
+    FROM HARPA.edificio e
+    FULL OUTER JOIN HARPA.data_center dc ON e.data = dc.data
+    FULL OUTER JOIN HARPA.fotovoltaico f ON COALESCE(e.data, dc.data) = f.data
+) AS combined
+GROUP BY data
+ON CONFLICT (data) DO UPDATE SET kilowatt = EXCLUDED.kilowatt;
+
 
 CREATE TABLE IF NOT EXISTS HARPA.unione_dataset (
     id SERIAL PRIMARY KEY,
@@ -79,16 +110,6 @@ FULL OUTER JOIN HARPA.data_center dc ON e.data = dc.data
 FULL OUTER JOIN HARPA.fotovoltaico f ON e.data = f.data
 WHERE e.data IS NOT NULL AND dc.data IS NOT NULL
 ORDER BY data;
-
--- Rimozione dei duplicati in unione_dataset
-DELETE FROM HARPA.unione_dataset
-WHERE id IN (
-    SELECT id FROM HARPA.unione_dataset
-    EXCEPT
-    SELECT max(id)
-    FROM HARPA.unione_dataset
-    GROUP BY data
-);
 
 -- Creazione delle tabelle di aggregazione
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_ora (
@@ -155,7 +176,7 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_anno (
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_fascia_oraria (
     id SERIAL PRIMARY KEY,
-    data DATE NOT NULL,
+    data DATE NOT NULL UNIQUE,
     fascia_oraria INTEGER,
     kilowatt_edificio NUMERIC(10, 2),
     kilowatt_data_center NUMERIC(10, 2),
@@ -194,7 +215,13 @@ WINDOW w AS (
     ORDER BY data
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
-ORDER BY data;
+ORDER BY data
+ON CONFLICT (data) DO UPDATE SET
+    kilowatt_edificio = EXCLUDED.kilowatt_edificio,
+    kilowatt_data_center = EXCLUDED.kilowatt_data_center,
+    kilowatt_fotovoltaico = EXCLUDED.kilowatt_fotovoltaico,
+    kilowatt_ufficio = EXCLUDED.kilowatt_ufficio,
+    giorno_settimana = EXCLUDED.giorno_settimana;
 
 
 INSERT INTO HARPA.aggregazione_giorno (
@@ -218,7 +245,13 @@ WINDOW w AS (
     ORDER BY data
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
-ORDER BY data;
+ORDER BY data
+ON CONFLICT (data) DO UPDATE SET
+    kilowatt_edificio = EXCLUDED.kilowatt_edificio,
+    kilowatt_data_center = EXCLUDED.kilowatt_data_center,
+    kilowatt_fotovoltaico = EXCLUDED.kilowatt_fotovoltaico,
+    kilowatt_ufficio = EXCLUDED.kilowatt_ufficio,
+    giorno_settimana = EXCLUDED.giorno_settimana;
 
 
 INSERT INTO HARPA.aggregazione_mese (
@@ -242,7 +275,12 @@ ON mesi.primo_giorno_mese = DATE_TRUNC('month', primo_valore.data)
 JOIN
     (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio FROM HARPA.unione_dataset WHERE data IN (SELECT MAX(data) FROM HARPA.unione_dataset GROUP BY DATE_TRUNC('month', data))) AS ultimo_valore
 ON mesi.primo_giorno_mese = DATE_TRUNC('month', ultimo_valore.data)
-ORDER BY primo_giorno_mese;
+ORDER BY primo_giorno_mese
+ON CONFLICT (data) DO UPDATE SET
+    kilowatt_edificio = EXCLUDED.kilowatt_edificio,
+    kilowatt_data_center = EXCLUDED.kilowatt_data_center,
+    kilowatt_fotovoltaico = EXCLUDED.kilowatt_fotovoltaico,
+    kilowatt_ufficio = EXCLUDED.kilowatt_ufficio;
 
 
 
@@ -267,7 +305,12 @@ ON anni.primo_giorno_anno = DATE_TRUNC('year', primo_valore.data)
 JOIN
     (SELECT data, kilowatt_edificio, kilowatt_data_center, kilowatt_fotovoltaico, kilowatt_ufficio FROM HARPA.unione_dataset WHERE data IN (SELECT MAX(data) FROM HARPA.unione_dataset GROUP BY DATE_TRUNC('year', data))) AS ultimo_valore
 ON anni.primo_giorno_anno = DATE_TRUNC('year', ultimo_valore.data)
-ORDER BY primo_giorno_anno;
+ORDER BY primo_giorno_anno
+ON CONFLICT (data) DO UPDATE SET
+    kilowatt_edificio = EXCLUDED.kilowatt_edificio,
+    kilowatt_data_center = EXCLUDED.kilowatt_data_center,
+    kilowatt_fotovoltaico = EXCLUDED.kilowatt_fotovoltaico,
+    kilowatt_ufficio = EXCLUDED.kilowatt_ufficio;
 
 
 INSERT INTO HARPA.aggregazione_fascia_oraria (
@@ -311,7 +354,16 @@ JOIN
 ON DATE(giorni.primo) = DATE(ultimo_valore.data)  -- Convertito in DATE
 AND giorni.fascia_oraria = ultimo_valore.fascia_oraria
 AND giorni.giorno_settimana = ultimo_valore.giorno_settimana
-ORDER BY DATE(giorni.primo), giorni.fascia_oraria, giorni.giorno_settimana;  -- Convertito in DATE per ordinare
+ORDER BY DATE(giorni.primo), giorni.fascia_oraria, giorni.giorno_settimana -- Convertito in DATE per ordinare
+ON CONFLICT (data) DO UPDATE SET
+    kilowatt_edificio = EXCLUDED.kilowatt_edificio,
+    kilowatt_data_center = EXCLUDED.kilowatt_data_center,
+    kilowatt_fotovoltaico = EXCLUDED.kilowatt_fotovoltaico,
+    kilowatt_ufficio = EXCLUDED.kilowatt_ufficio,
+    fascia_oraria = EXCLUDED.fascia_oraria,
+    giorno_settimana = EXCLUDED.giorno_settimana;
+
+
 
 DELETE FROM harpa.aggregazione_ora
 WHERE
@@ -363,8 +415,7 @@ OR
 AND kilowatt_edificio = 0
 AND kilowatt_data_center = 0);
 
-
-
-
-
-
+-- Eliminazione delle tabelle temporanee dopo l'inserimento dei dati
+DROP TABLE IF EXISTS temp_data_center;
+DROP TABLE IF EXISTS temp_edificio;
+DROP TABLE IF EXISTS temp_fotovoltaico;

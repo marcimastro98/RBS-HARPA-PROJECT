@@ -1,42 +1,53 @@
 from decimal import Decimal
 
 import pandas as pd
+import psycopg2
 
 
 def smartworking_insert(cur, logging):
     try:
         # Inizia una transazione
         cur.execute("BEGIN;")
+        logging.info("Inizio transazione per l'aggiornamento smartworking.")
 
-        schema_name = 'harpa'
+        schema_name = 'HARPA'
         tables_to_update = ['aggregazione_giorno', 'aggregazione_fascia_oraria',
                             'aggregazione_mese', 'aggregazione_anno']
-        for table in tables_to_update:
-            cur.execute(f"""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT FROM information_schema.columns 
-                        WHERE table_schema = '{schema_name}' AND table_name = '{table}' AND column_name = 'is_smartworking'
-                    ) THEN
-                        ALTER TABLE {schema_name}.{table} ADD COLUMN is_smartworking TEXT;
-                    END IF;
-                END
-                $$;
-            """)
 
-        # Esecuzione della query principale e costruzione del DataFrame
-        aggregazione_oraria_query = """
-            SELECT
-                data, 
-                giorno_settimana, 
-                fascia_oraria, 
-                kilowatt_ufficio
-            FROM harpa.aggregazione_fascia_oraria
-            ORDER BY data;
-        """
+        for table in tables_to_update:
+            logging.info(f"Verifica e aggiunta della colonna is_smartworking alla tabella {table}.")
+            cur.execute(f"""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT FROM information_schema.columns 
+                            WHERE table_schema = '{schema_name}' AND table_name = '{table}' AND column_name = 'is_smartworking'
+                        ) THEN
+                            ALTER TABLE {schema_name}.{table} ADD COLUMN is_smartworking TEXT;
+                            RAISE NOTICE 'Aggiunta colonna is_smartworking alla tabella {table}.';
+                        END IF;
+                    END
+                    $$;
+                """)
+
+        logging.info("Query principale per aggregazione oraria.")
+        aggregazione_oraria_query = f"""
+                SELECT
+                    data, 
+                    giorno_settimana, 
+                    fascia_oraria, 
+                    kilowatt_ufficio
+                FROM {schema_name}.aggregazione_fascia_oraria
+                ORDER BY data;
+            """
         cur.execute(aggregazione_oraria_query)
-        df = pd.DataFrame(cur.fetchall(), columns=[desc[0] for desc in cur.description])
+        results = cur.fetchall()
+        if not results:
+            logging.warning("Nessun dato trovato per l'aggregazione oraria. Interrompo l'aggiornamento smartworking.")
+            cur.execute("ROLLBACK;")
+            return
+
+        df = pd.DataFrame(results, columns=[desc[0] for desc in cur.description])
         df = df.drop(df[(df['kilowatt_ufficio'].isnull()) |
                         (df['kilowatt_ufficio'] == 0)].index)
 
@@ -76,12 +87,12 @@ def smartworking_insert(cur, logging):
         # Aggiornamento delle tabelle con i valori 'is_smartworking'
         update_queries = {
             'aggregazione_giorno': """
-                UPDATE harpa.aggregazione_giorno
+                UPDATE HARPA.aggregazione_giorno
                 SET is_smartworking = %s
                 WHERE data = %s;
             """,
             'aggregazione_fascia_oraria': """
-                UPDATE harpa.aggregazione_fascia_oraria
+                UPDATE HARPA.aggregazione_fascia_oraria
                 SET is_smartworking = %s
                 WHERE data = %s AND fascia_oraria = %s;
             """
@@ -102,35 +113,38 @@ def smartworking_insert(cur, logging):
 
         # Inserimento dei dati aggregati nelle tabelle mensili e annuali
         cur.execute("""
-            UPDATE harpa.aggregazione_mese
+            UPDATE HARPA.aggregazione_mese
             SET is_smartworking = subquery.percentuale_smart_working
             FROM (
                 SELECT
                     TO_CHAR(DATE_TRUNC('month', data), 'YYYY-MM') AS mese_troncato,
                     TO_CHAR(ROUND((COUNT(*) FILTER (WHERE is_smartworking = 'OK')::NUMERIC / COUNT(*)) * 100, 2), 'FM9990.00') || '%' AS percentuale_smart_working
-                FROM harpa.aggregazione_giorno
+                FROM HARPA.aggregazione_giorno
                 GROUP BY DATE_TRUNC('month', data)
             ) AS subquery
-            WHERE TO_CHAR(harpa.aggregazione_mese.data, 'YYYY-MM') = subquery.mese_troncato;
+            WHERE TO_CHAR(HARPA.aggregazione_mese.data, 'YYYY-MM') = subquery.mese_troncato;
         """)
         cur.execute("""
-            UPDATE harpa.aggregazione_anno
+            UPDATE HARPA.aggregazione_anno
             SET is_smartworking = subquery.percentuale_smart_working
             FROM (
                 SELECT
                     EXTRACT(YEAR FROM data) AS anno,
                     TO_CHAR(ROUND((COUNT(*) FILTER (WHERE is_smartworking = 'OK')::NUMERIC / COUNT(*)) * 100, 2), 'FM9990.00')
-                     || '%' AS percentuale_smart_working FROM harpa.aggregazione_giorno
+                     || '%' AS percentuale_smart_working FROM HARPA.aggregazione_giorno
                 GROUP BY EXTRACT(YEAR FROM data)
             ) AS subquery
-            WHERE EXTRACT(YEAR FROM harpa.aggregazione_anno.data) = subquery.anno;
+            WHERE EXTRACT(YEAR FROM HARPA.aggregazione_anno.data) = subquery.anno;
         """)
 
         # Commit delle modifiche
         cur.execute("COMMIT;")
-        logging.info("Added smartworking days to tables!")
-    except Exception as e:
-        # In caso di errore, effettua il rollback
+    except psycopg2.Error as e:
         cur.execute("ROLLBACK;")
-        logging.error(f"Errore nell'aggiunta dello smart working: {e}")
-        raise
+        logging.error(f"Errore psycopg2 durante l'aggiunta dello smart working: {e}")
+    except Exception as e:
+        cur.execute("ROLLBACK;")
+        logging.error(f"Errore generico durante l'aggiunta dello smart working: {e}")
+    else:
+        cur.execute("COMMIT;")
+        logging.info("Transazione completata con successo. Giornate di smart working aggiornate.")

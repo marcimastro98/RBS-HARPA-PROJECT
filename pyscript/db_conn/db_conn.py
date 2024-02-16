@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from psycopg2 import OperationalError
 
 
-def db_conn():
+def db_conn(logging):
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Risalire di 2 cartelle rispetto alla directory corrente dello script
     base_dir = os.path.dirname(os.path.dirname(script_dir))
@@ -18,6 +19,9 @@ def db_conn():
     db_password = os.getenv('DB_PASSWORD')
     db_name = os.getenv('DB_NAME')
     db_port = os.getenv('DB_PORT')
+    conn = None
+    cur = None
+    tables = None
     for _ in range(5):
         try:
             conn = psycopg2.connect(
@@ -36,9 +40,11 @@ def db_conn():
                 """)
 
             tables = cur.fetchall()
-            print(f"Connection to {db_name} established, tables:{tables}")
-            return [tables, cur, conn]
+
         except OperationalError as e:
-            print(f"Errore: {e}"
-                  f"Connessione fallita, nuovo tentativo in {10} secondi.")
+            logging.error(f"Errore: {e}"
+                          f"Connessione fallita, nuovo tentativo in {10} secondi.")
             time.sleep(10)
+        finally:
+            logging.info(f"Connection to {db_name} established")
+            return tables, cur, conn
