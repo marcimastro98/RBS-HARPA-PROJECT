@@ -33,7 +33,7 @@ if __name__ == '__main__':
     meteo_data_future_forecast['previsioni'] = predictions
 
     # Raggruppa per data, fascia oraria e giorno della settimana, e calcola la media delle previsioni
-    grouped = meteo_data_future_forecast.groupby(['data', 'fascia_oraria', 'giorno_settimana'])['previsioni'].sum().reset_index()
+    grouped = meteo_data_future_forecast.groupby(['data', 'fascia_oraria', 'giorno_settimana'])['previsioni'].mean().reset_index()
 
     # Salva i risultati raggruppati in un CSV
     grouped.to_csv('../machine-learning/result/future_predictions_grouped.csv', index=False)
