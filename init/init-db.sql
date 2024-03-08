@@ -89,12 +89,23 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_ora (
     kilowatt_fotovoltaico NUMERIC(10, 2),
     kilowatt_ufficio NUMERIC(10, 2),
     giorno_settimana INTEGER,
-    temperature_2m NUMERIC(10, 2),
     rain NUMERIC(10, 2),
     cloud_cover NUMERIC(10, 2),
     relative_humidity_2m NUMERIC(10, 2),
     wind_speed_10m NUMERIC(10, 2),
-    wind_direction_10m NUMERIC(10, 2)
+    wind_direction_10m NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    dew_point_2m NUMERIC(10, 2),
+    apparent_temperature NUMERIC(10, 2),
+    precipitation NUMERIC(10, 2),
+    snowfall NUMERIC(10, 2),
+    snow_depth NUMERIC(10, 2),
+    weather_code NUMERIC(10, 2),
+    pressure_msl NUMERIC(10, 2),
+    surface_pressure NUMERIC(10, 2),
+    cloud_cover_low NUMERIC(10, 2),
+    cloud_cover_mid NUMERIC(10, 2),
+    cloud_cover_high NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_giorno (
@@ -105,12 +116,23 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_giorno (
     kilowatt_fotovoltaico NUMERIC(10, 2),
     kilowatt_ufficio NUMERIC(10, 2),
     giorno_settimana INTEGER,
-    temperature_2m NUMERIC(10, 2),
     rain NUMERIC(10, 2),
     cloud_cover NUMERIC(10, 2),
     relative_humidity_2m NUMERIC(10, 2),
     wind_speed_10m NUMERIC(10, 2),
-    wind_direction_10m NUMERIC(10, 2)
+    wind_direction_10m NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    dew_point_2m NUMERIC(10, 2),
+    apparent_temperature NUMERIC(10, 2),
+    precipitation NUMERIC(10, 2),
+    snowfall NUMERIC(10, 2),
+    snow_depth NUMERIC(10, 2),
+    weather_code NUMERIC(10, 2),
+    pressure_msl NUMERIC(10, 2),
+    surface_pressure NUMERIC(10, 2),
+    cloud_cover_low NUMERIC(10, 2),
+    cloud_cover_mid NUMERIC(10, 2),
+    cloud_cover_high NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_mese (
@@ -120,12 +142,23 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_mese (
     kilowatt_data_center NUMERIC(10, 2),
     kilowatt_fotovoltaico NUMERIC(10, 2),
     kilowatt_ufficio NUMERIC(10, 2),
-    temperature_2m NUMERIC(10, 2),
     rain NUMERIC(10, 2),
     cloud_cover NUMERIC(10, 2),
     relative_humidity_2m NUMERIC(10, 2),
     wind_speed_10m NUMERIC(10, 2),
-    wind_direction_10m NUMERIC(10, 2)
+    wind_direction_10m NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    dew_point_2m NUMERIC(10, 2),
+    apparent_temperature NUMERIC(10, 2),
+    precipitation NUMERIC(10, 2),
+    snowfall NUMERIC(10, 2),
+    snow_depth NUMERIC(10, 2),
+    weather_code NUMERIC(10, 2),
+    pressure_msl NUMERIC(10, 2),
+    surface_pressure NUMERIC(10, 2),
+    cloud_cover_low NUMERIC(10, 2),
+    cloud_cover_mid NUMERIC(10, 2),
+    cloud_cover_high NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_anno (
@@ -135,12 +168,23 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_anno (
     kilowatt_data_center NUMERIC(10, 2),
     kilowatt_fotovoltaico NUMERIC(10, 2),
     kilowatt_ufficio NUMERIC(10, 2),
-    temperature_2m NUMERIC(10, 2),
     rain NUMERIC(10, 2),
     cloud_cover NUMERIC(10, 2),
     relative_humidity_2m NUMERIC(10, 2),
     wind_speed_10m NUMERIC(10, 2),
-    wind_direction_10m NUMERIC(10, 2)
+    wind_direction_10m NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    dew_point_2m NUMERIC(10, 2),
+    apparent_temperature NUMERIC(10, 2),
+    precipitation NUMERIC(10, 2),
+    snowfall NUMERIC(10, 2),
+    snow_depth NUMERIC(10, 2),
+    weather_code NUMERIC(10, 2),
+    pressure_msl NUMERIC(10, 2),
+    surface_pressure NUMERIC(10, 2),
+    cloud_cover_low NUMERIC(10, 2),
+    cloud_cover_mid NUMERIC(10, 2),
+    cloud_cover_high NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_fascia_oraria (
@@ -152,12 +196,23 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_fascia_oraria (
     kilowatt_fotovoltaico NUMERIC(10, 2),
     kilowatt_ufficio NUMERIC(10, 2),
     giorno_settimana INTEGER,
-    temperature_2m NUMERIC(10, 2),
     rain NUMERIC(10, 2),
     cloud_cover NUMERIC(10, 2),
     relative_humidity_2m NUMERIC(10, 2),
     wind_speed_10m NUMERIC(10, 2),
     wind_direction_10m NUMERIC(10, 2),
+    temperature_2m NUMERIC(10, 2),
+    dew_point_2m NUMERIC(10, 2),
+    apparent_temperature NUMERIC(10, 2),
+    precipitation NUMERIC(10, 2),
+    snowfall NUMERIC(10, 2),
+    snow_depth NUMERIC(10, 2),
+    weather_code NUMERIC(10, 2),
+    pressure_msl NUMERIC(10, 2),
+    surface_pressure NUMERIC(10, 2),
+    cloud_cover_low NUMERIC(10, 2),
+    cloud_cover_mid NUMERIC(10, 2),
+    cloud_cover_high NUMERIC(10, 2),
     UNIQUE (data, fascia_oraria)
 );
 
