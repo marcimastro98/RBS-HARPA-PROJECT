@@ -84,6 +84,7 @@ ON CONFLICT (data) DO NOTHING;
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_ora (
     id SERIAL PRIMARY KEY,
     data TIMESTAMP NOT NULL UNIQUE,
+    fascia_oraria INTEGER,
     kilowatt_edificio NUMERIC(10, 2),
     kilowatt_data_center NUMERIC(10, 2),
     kilowatt_fotovoltaico NUMERIC(10, 2),

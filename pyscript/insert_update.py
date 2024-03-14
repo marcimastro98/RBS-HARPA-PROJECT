@@ -56,7 +56,7 @@ def update_aggregations(logging, aggregations, cur, table_names, conn):
     try:
         for agg, table_name in zip(aggregations, table_names):
             for index, row in agg.iterrows():
-                if table_name == 'fascia_oraria':
+                if table_name == 'fascia_oraria' or table_name == 'ora':
                     params = (
                         row['data'], row['fascia_oraria'], row['temperature_2m'],
                         row['relative_humidity_2m'], row['dew_point_2m'],
@@ -85,13 +85,13 @@ def update_aggregations(logging, aggregations, cur, table_names, conn):
 
 
 def generate_query(table_name):
-    if table_name == 'fascia_oraria':
+    if table_name == 'fascia_oraria' or table_name == 'ora':
         columns = ("data, fascia_oraria, temperature_2m, relative_humidity_2m, dew_point_2m, "
                    "apparent_temperature, precipitation, rain, snowfall, snow_depth, "
                    "weather_code, pressure_msl, surface_pressure, cloud_cover, "
                    "cloud_cover_low, cloud_cover_mid, cloud_cover_high, wind_speed_10m, "
                    "wind_direction_10m")
-        conflict_columns = "(data, fascia_oraria)"
+        conflict_columns = "(data, fascia_oraria)" if table_name == 'fascia_oraria' else "(data)"
     else:
         columns = ("data, temperature_2m, relative_humidity_2m, dew_point_2m, "
                    "apparent_temperature, precipitation, rain, snowfall, snow_depth, "

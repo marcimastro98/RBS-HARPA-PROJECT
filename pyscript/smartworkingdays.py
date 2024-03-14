@@ -9,7 +9,7 @@ def smartworking_insert(cur, conn, logging, exists):
         logging.info("Inizio transazione per l'aggiornamento smartworking.")
 
         schema_name = 'HARPA'
-        tables_to_update = ['aggregazione_giorno', 'aggregazione_fascia_oraria',
+        tables_to_update = ['aggregazione_giorno', 'aggregazione_ora', 'aggregazione_fascia_oraria',
                             'aggregazione_mese', 'aggregazione_anno']
         for table in tables_to_update:
             if not exists:
@@ -21,10 +21,6 @@ def smartworking_insert(cur, conn, logging, exists):
         # Commit una volta completate tutte le modifiche
         conn.commit()
         logging.info("Transazione completata.")
-        # cur.execute(f""" DO $$ BEGIN IF NOT EXISTS ( SELECT FROM information_schema.columns WHERE table_schema = '{
-        # schema_name}' AND table_name = '{table}' AND column_name = 'is_smartworking' ) THEN ALTER TABLE {
-        # schema_name}.{table} ADD COLUMN is_smartworking TEXT; RAISE NOTICE 'Aggiunta colonna is_smartworking alla
-        # tabella {table}.'; END IF; END $$; """)
         logging.info("Query principale per aggregazione oraria.")
         aggregazione_oraria_query = f"""
                 SELECT
@@ -72,7 +68,7 @@ def smartworking_insert(cur, conn, logging, exists):
                     and row['fascia_oraria'] == 2
                     and row['giorno_settimana'] != 6
                     and row['giorno_settimana'] != 0
-            else 'OK' if row['kilowatt_ufficio'] < media_kilowatt
+            else 'OK' if row['kilowatt_ufficio'] <= media_kilowatt
                          and row['fascia_oraria'] == 2
                          and row['giorno_settimana'] != 6
                          and row['giorno_settimana'] != 0
@@ -86,6 +82,11 @@ def smartworking_insert(cur, conn, logging, exists):
                 SET is_smartworking = %s
                 WHERE data = %s;
             """,
+            'aggregazione_ora': """
+                        UPDATE HARPA.aggregazione_ora
+                        SET is_smartworking = %s
+                        WHERE data = %s AND fascia_oraria = %s;
+                    """,
             'aggregazione_fascia_oraria': """
                 UPDATE HARPA.aggregazione_fascia_oraria
                 SET is_smartworking = %s
@@ -95,12 +96,15 @@ def smartworking_insert(cur, conn, logging, exists):
 
         # Prepara i dati per l'aggiornamento batch
         update_data_aggregazione_giorno = []
+        update_data_aggregazione_ora = []
         update_data_aggregazione_fascia_oraria = []
 
         for i, row in df.iterrows():
             if row['fascia_oraria'] == 2:
                 # Aggiunge alla lista solo i record che corrispondono alla fascia oraria 2
                 update_data_aggregazione_giorno.append((row['is_smartworking'], row['data']))
+            update_data_aggregazione_ora.append(
+                (row['is_smartworking'], row['data'], row['fascia_oraria']))
             update_data_aggregazione_fascia_oraria.append(
                 (row['is_smartworking'], row['data'], row['fascia_oraria']))
 
@@ -109,6 +113,8 @@ def smartworking_insert(cur, conn, logging, exists):
         cur.execute("COMMIT;")
         conn.commit()
         cur.executemany(update_queries['aggregazione_fascia_oraria'], update_data_aggregazione_fascia_oraria)
+        cur.execute("COMMIT;")
+        cur.executemany(update_queries['aggregazione_ora'], update_data_aggregazione_ora)
         cur.execute("COMMIT;")
         conn.commit()
         cur.execute("""
