@@ -31,7 +31,8 @@ def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_m
         "end_date": end_date,
         "hourly": ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation",
                    "rain", "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover",
-                   "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m"]
+                   "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m", 
+                   "is_day", "direct_radiation", "diffuse_radiation", "direct_normal_irradiance", "global_tilted_irradiance", "terrestrial_radiation"],
     }
     responses = openmeteo.weather_api(url_future if future else url, params=params)
 
@@ -44,7 +45,8 @@ def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_m
     for i, variable in enumerate(
             ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation", "rain",
              "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover",
-             "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m"]):
+             "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m", 
+             "is_day", "direct_radiation", "diffuse_radiation", "direct_normal_irradiance", "global_tilted_irradiance", "terrestrial_radiation"]):
         hourly_data[variable] = hourly.Variables(i).ValuesAsNumpy()
 
     hourly_data["date"] = pd.date_range(

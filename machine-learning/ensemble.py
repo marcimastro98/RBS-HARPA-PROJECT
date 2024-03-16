@@ -11,6 +11,13 @@ from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSe
 from xgboost import XGBRegressor
 from load_data import prepare_data
 
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import BaggingRegressor, ExtraTreesRegressor, AdaBoostRegressor, VotingRegressor
+from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
+
+
 
 def calculate_rmse(y_true, y_pred):
     return np.sqrt(mean_squared_error(y_true, y_pred))
@@ -78,11 +85,15 @@ def hyperparameter_tuning_or_fit(model, params, X_train, Y_train, use_hyperparam
 
 
 def convert_dates(X_data):
-    X_data['day'] = X_data['data'].dt.day
-    X_data['month'] = X_data['data'].dt.month
-    X_data['year'] = X_data['data'].dt.year
+    #X_data['day'] = X_data['data'].dt.day
+    #X_data['month'] = X_data['data'].dt.month
+    #X_data['year'] = X_data['data'].dt.year
 
-    X_data = X_data.drop('data', axis=1)  # Rimuovi la colonna originale 'data'
+    X_data['day'] = X_data['day']
+    X_data['month'] = X_data['month']
+    X_data['year'] = X_data['year']
+
+    # X_data = X_data.drop('data', axis=1)  # Rimuovi la colonna originale 'data'
     return X_data
 
 
@@ -98,7 +109,19 @@ def train_and_evaluate(X, y):
         'gb': (GradientBoostingRegressor(), {'n_estimators': [70, 100]}, False),
         'rf': (RandomForestRegressor(), {'n_estimators': [70, 100]}, False),
         'ridge': (Ridge(), {'alpha': [1.0]}, False),
+        'svr': (SVR(), {'C': [1.0], 'epsilon': [0.1]}, False),
+        'mlp': (MLPRegressor(), {'hidden_layer_sizes': [(100, 100), (50, 50)], 'alpha': [0.0001, 0.001]}, True),
+        'dt': (DecisionTreeRegressor(), {'max_depth': [5, 10]}, False),
+        'bagging': (BaggingRegressor(), {'n_estimators': [70, 100]}, False),
+        'extra_trees': (ExtraTreesRegressor(), {'n_estimators': [70, 100]}, False),
+        'ada_boost': (AdaBoostRegressor(), {'n_estimators': [70, 100]}, False),
+        'voting': (VotingRegressor(estimators=[('xgb', XGBRegressor(objective='reg:squarederror'), {'n_estimators': [70, 100]}),
+                                              ('lgbm', LGBMRegressor()), ('rf', RandomForestRegressor())]),
+                   {'weights': [[1, 1, 1], [2, 1, 1], [1, 2, 1]]}, False),
+        #'linear': (LinearRegression(), {'normalize': [True, False]}, False),
+        'lasso': (Lasso(), {'alpha': [0.1, 1.0]}, False),
     }
+
 
     trained_models = []
 

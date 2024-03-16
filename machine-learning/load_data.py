@@ -90,12 +90,19 @@ def convert_dates(df):
 
 
 def prepare_data():
-    original_df = fetch_data_to_dataframe(select_query, db_params).dropna(axis=0, how='any')
+    original_df = fetch_data_to_dataframe(select_query, db_params)
+    #original_df = fetch_data_to_dataframe(select_query, db_params).dropna(axis=0, how='any')
+    
+    original_df = original_df.drop(columns=['is_smartworking'])
+    original_df = original_df.dropna(axis=0, how='any')
+
     df = original_df.drop(columns=['id'])
     df['data'] = pd.to_datetime(df['data'])
     df = convert_dates(df)
 
     df = df[df['kilowatt_fotovoltaico'] != 0]
+
+    
 
     # df = filter_outliers(df, 'kilowatt_edificio', 0.99)
 
@@ -106,13 +113,17 @@ def prepare_data():
     # Calcolo di ulteriori feature meteorologiche
     df = calculate_additional_weather_features(df)
 
+
     # Feature scaling
     features_to_scale = ['rain', 'cloud_cover',
                          'relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m',
                          'temperature_2m', 'dew_point_2m', 'apparent_temperature',
                          'precipitation', 'weather_code',
                          'pressure_msl', 'surface_pressure', 'cloud_cover_low',
-                         'cloud_cover_mid', 'cloud_cover_high', 'heat_index', 'wind_chill']
+                         'cloud_cover_mid', 'cloud_cover_high', 'heat_index', 'wind_chill', 'is_day',
+                         'direct_radiation', 'diffuse_radiation', 'direct_normal_irradiance',
+                         'global_tilted_irradiance', 'terrestrial_radiation']
+
     scaler = StandardScaler()
     df[features_to_scale] = scaler.fit_transform(df[features_to_scale])
 
@@ -125,7 +136,8 @@ def prepare_data():
 
     features = df.drop(
         columns=['kilowatt_edificio', 'kilowatt_ufficio', 'kilowatt_data_center',
-                 'is_smartworking', 'kilowatt_fotovoltaico'])  # Assicurati di rimuovere tutte le colonne non necessarie
+                # 'is_smartworking', 
+                'kilowatt_fotovoltaico'])  # Assicurati di rimuovere tutte le colonne non necessarie
     target = df['kilowatt_edificio']
     correct_column_order = ['rain', 'cloud_cover', 'fascia_oraria',
                             'relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m',
@@ -134,7 +146,10 @@ def prepare_data():
                             'pressure_msl', 'surface_pressure', 'cloud_cover_low',
                             'cloud_cover_mid', 'cloud_cover_high', 'heat_index', 'wind_chill', 'year', 'month', 'day',
                             'hour',
-                            'giorno_settimana']
+                            'giorno_settimana',
+                            'is_day',
+                            'direct_radiation', 'diffuse_radiation', 'direct_normal_irradiance',
+                            'global_tilted_irradiance', 'terrestrial_radiation']
     features = features[correct_column_order]
 
     return features, target
