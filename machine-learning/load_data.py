@@ -1,42 +1,16 @@
 import numpy as np
 import pandas as pd
-import psycopg2
-from catboost import CatBoostRegressor
-from lightgbm import LGBMRegressor
-from matplotlib import pyplot as plt
-from meteocalc import heat_index, dew_point, wind_chill
-from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, BaggingRegressor, ExtraTreesRegressor, \
-    AdaBoostRegressor, StackingRegressor, VotingRegressor
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.neural_network import MLPRegressor
+from meteocalc import heat_index, wind_chill
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
-from xgboost import XGBRegressor
-
-db_params = {
-    'host': 'localhost',
-    'database': 'HARPA',
-    'user': 'user',
-    'password': 'password',
-    'port': '5432',
-}
-
-select_query = 'SELECT * FROM harpa.aggregazione_ora WHERE 1=1'
+from sqlalchemy import create_engine
 
 
-def fetch_data_to_dataframe(query, connection_params):
-    # Connessione al database
-    connection = psycopg2.connect(**connection_params)
-    # Esecuzione della query e caricamento dei dati nel DataFrame
-    data_frame = pd.read_sql_query(query, connection)
-
-    # Chiusura della connessione
-    connection.close()
-
-    return data_frame
+def fetch_data_to_dataframe():
+    # Utilizza SQLAlchemy per creare una connessione
+    engine = create_engine('postgresql://user:password@localhost:5432/HARPA')
+    query = 'SELECT * FROM harpa.aggregazione_ora WHERE 1=1'
+    df = pd.read_sql_query(query, engine)
+    return df
 
 
 def encode_cyclical(df, col, max_val):
@@ -59,7 +33,6 @@ def calculate_additional_weather_features(df):
         lambda row: wind_chill(temperature=row['temp_f'], wind_speed=row['wind_speed_mph'])
         if row['temp_f'] <= 50 and row['wind_speed_mph'] >= 3 else row['temp_f'], axis=1)
 
-    # Rimozione delle colonne temporanee
     df.drop(columns=['temp_f', 'wind_speed_mph'], inplace=True)
 
     return df
@@ -90,20 +63,12 @@ def convert_dates(df):
 
 
 def prepare_data():
-    original_df = fetch_data_to_dataframe(select_query, db_params).dropna(axis=0, how='any')
+    original_df = fetch_data_to_dataframe().dropna(axis=0, how='any')
     df = original_df.drop(columns=['id'])
     df['data'] = pd.to_datetime(df['data'])
     df = convert_dates(df)
 
     df = df[df['kilowatt_fotovoltaico'] != 0]
-
-    # df = filter_outliers(df, 'kilowatt_edificio', 0.99)
-
-    # Encoding delle variabili cicliche
-    # df = encode_cyclical(df, 'fascia_oraria', 24)
-    # df = encode_cyclical(df, 'giorno_settimana', 7)
-
-    # Calcolo di ulteriori feature meteorologiche
     df = calculate_additional_weather_features(df)
 
     # Feature scaling
@@ -116,16 +81,9 @@ def prepare_data():
     scaler = StandardScaler()
     df[features_to_scale] = scaler.fit_transform(df[features_to_scale])
 
-    # df_encoded = df_encoded.drop('data', axis=1)
-
-    # Encoding one-hot delle variabili categoriche
-    # df_encoded = pd.get_dummies(df, columns=['is_smartworking'], prefix='smartworking', drop_first=True)
-
-    # Ordina il DataFrame in base alla colonna 'data' e definisci feature e target
-
     features = df.drop(
         columns=['kilowatt_edificio', 'kilowatt_ufficio', 'kilowatt_data_center',
-                 'is_smartworking', 'kilowatt_fotovoltaico'])  # Assicurati di rimuovere tutte le colonne non necessarie
+                 'kilowatt_fotovoltaico'])  # Assicurati di rimuovere tutte le colonne non necessarie
     target = df['kilowatt_edificio']
     correct_column_order = ['rain', 'cloud_cover', 'fascia_oraria',
                             'relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m',
