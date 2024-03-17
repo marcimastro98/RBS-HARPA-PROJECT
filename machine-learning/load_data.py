@@ -1,13 +1,33 @@
+import os
+
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from meteocalc import heat_index, wind_chill
 from sklearn.preprocessing import StandardScaler
 from sqlalchemy import create_engine
 
 
 def fetch_data_to_dataframe():
-    # Utilizza SQLAlchemy per creare una connessione
-    engine = create_engine('postgresql://user:password@localhost:5432/HARPA')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(script_dir)
+    env_path = os.path.join(base_dir, 'env', '.env')
+
+    load_dotenv(env_path)
+    db_host = os.getenv('DB_HOST')
+    db_user = os.getenv('DB_USER')
+    db_password = os.getenv('DB_PASSWORD')
+    db_name = os.getenv('DB_NAME')
+    db_port = os.getenv('DB_PORT')
+
+    DATABASE_TYPE = 'postgresql'
+    DBAPI = 'psycopg2'
+    HOST = db_host
+    USER = db_user
+    PASSWORD = db_password
+    DATABASE = db_name
+    PORT = db_port
+    engine = f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}"
     query = 'SELECT * FROM harpa.aggregazione_ora WHERE 1=1'
     df = pd.read_sql_query(query, engine)
     return df
@@ -24,7 +44,6 @@ def calculate_additional_weather_features(df):
     df['temp_f'] = df['temperature_2m'] * 9 / 5 + 32
     df['wind_speed_mph'] = df['wind_speed_10m'] * 2.237  # conversione da m/s a mph
 
-    # Applicazione della funzione di calcolo solo dove ha senso fisicamente
     df['heat_index'] = df.apply(
         lambda row: heat_index(temperature=row['temp_f'], humidity=row['relative_humidity_2m'])
         if row['temp_f'] >= 80 and row['relative_humidity_2m'] >= 40 else row['temp_f'], axis=1)
@@ -52,7 +71,6 @@ def convert_dates(df):
         df['month'] = df['data'].dt.month
         df['day'] = df['data'].dt.day
         df['hour'] = df['data'].dt.hour
-        # df['hour'] = df['data'].dt.hour
         df['giorno_settimana'] = df['data'].dt.dayofweek
 
         # Rimozione della colonna datetime originale
@@ -83,7 +101,7 @@ def prepare_data():
 
     features = df.drop(
         columns=['kilowatt_edificio', 'kilowatt_ufficio', 'kilowatt_data_center',
-                 'kilowatt_fotovoltaico'])  # Assicurati di rimuovere tutte le colonne non necessarie
+                 'kilowatt_fotovoltaico'])
     target = df['kilowatt_edificio']
     correct_column_order = ['rain', 'cloud_cover', 'fascia_oraria',
                             'relative_humidity_2m', 'wind_speed_10m', 'wind_direction_10m',
