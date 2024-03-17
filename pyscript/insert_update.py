@@ -64,7 +64,9 @@ def update_aggregations(logging, aggregations, cur, table_names, conn):
                         row['snowfall'], row['snow_depth'], row['weather_code'],
                         row['pressure_msl'], row['surface_pressure'], row['cloud_cover'],
                         row['cloud_cover_low'], row['cloud_cover_mid'], row['cloud_cover_high'],
-                        row['wind_speed_10m'], row['wind_direction_10m']
+                        row['wind_speed_10m'], row['wind_direction_10m'], row['is_day'], 
+                        row['direct_radiation'], row['diffuse_radiation'], row['direct_normal_irradiance'],
+                        row['global_tilted_irradiance'], row['terrestrial_radiation']
                     )
                 else:
                     params = (
@@ -73,7 +75,9 @@ def update_aggregations(logging, aggregations, cur, table_names, conn):
                         row['rain'], row['snowfall'], row['snow_depth'],
                         row['weather_code'], row['pressure_msl'], row['surface_pressure'], row['cloud_cover'],
                         row['cloud_cover_low'], row['cloud_cover_mid'], row['cloud_cover_high'],
-                        row['wind_speed_10m'], row['wind_direction_10m']
+                        row['wind_speed_10m'], row['wind_direction_10m'], row['is_day'],
+                        row['direct_radiation'], row['diffuse_radiation'], row['direct_normal_irradiance'],
+                        row['global_tilted_irradiance'], row['terrestrial_radiation']
                     )
 
                 query = generate_query(table_name)
@@ -90,14 +94,16 @@ def generate_query(table_name):
                    "apparent_temperature, precipitation, rain, snowfall, snow_depth, "
                    "weather_code, pressure_msl, surface_pressure, cloud_cover, "
                    "cloud_cover_low, cloud_cover_mid, cloud_cover_high, wind_speed_10m, "
-                   "wind_direction_10m")
+                   "wind_direction_10m, is_day, direct_radiation, diffuse_radiation, "
+                   "direct_normal_irradiance, global_tilted_irradiance, terrestrial_radiation")
         conflict_columns = "(data, fascia_oraria)" if table_name == 'fascia_oraria' else "(data)"
     else:
         columns = ("data, temperature_2m, relative_humidity_2m, dew_point_2m, "
                    "apparent_temperature, precipitation, rain, snowfall, snow_depth, "
                    "weather_code, pressure_msl, surface_pressure, cloud_cover, "
                    "cloud_cover_low, cloud_cover_mid, cloud_cover_high, wind_speed_10m, "
-                   "wind_direction_10m")
+                   "wind_direction_10m, is_day, direct_radiation, diffuse_radiation, "
+                   "direct_normal_irradiance, global_tilted_irradiance, terrestrial_radiation")
 
         conflict_columns = "(data)"
 
