@@ -84,6 +84,7 @@ ON CONFLICT (data) DO NOTHING;
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_ora (
     id SERIAL PRIMARY KEY,
     data TIMESTAMP NOT NULL UNIQUE,
+    fascia_oraria INTEGER,
     kilowatt_edificio NUMERIC(10, 2),
     kilowatt_data_center NUMERIC(10, 2),
     kilowatt_fotovoltaico NUMERIC(10, 2),
@@ -105,7 +106,13 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_ora (
     surface_pressure NUMERIC(10, 2),
     cloud_cover_low NUMERIC(10, 2),
     cloud_cover_mid NUMERIC(10, 2),
-    cloud_cover_high NUMERIC(10, 2)
+    cloud_cover_high NUMERIC(10, 2),
+    is_day NUMERIC(10, 2),
+    direct_radiation NUMERIC(10, 2),
+    diffuse_radiation NUMERIC(10, 2),
+    direct_normal_irradiance NUMERIC(10, 2),
+    global_tilted_irradiance NUMERIC(10, 2),
+    terrestrial_radiation NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_giorno (
@@ -132,7 +139,13 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_giorno (
     surface_pressure NUMERIC(10, 2),
     cloud_cover_low NUMERIC(10, 2),
     cloud_cover_mid NUMERIC(10, 2),
-    cloud_cover_high NUMERIC(10, 2)
+    cloud_cover_high NUMERIC(10, 2),
+    is_day NUMERIC(10, 2),
+    direct_radiation NUMERIC(10, 2),
+    diffuse_radiation NUMERIC(10, 2),
+    direct_normal_irradiance NUMERIC(10, 2),
+    global_tilted_irradiance NUMERIC(10, 2),
+    terrestrial_radiation NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_mese (
@@ -158,7 +171,13 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_mese (
     surface_pressure NUMERIC(10, 2),
     cloud_cover_low NUMERIC(10, 2),
     cloud_cover_mid NUMERIC(10, 2),
-    cloud_cover_high NUMERIC(10, 2)
+    cloud_cover_high NUMERIC(10, 2),
+    is_day NUMERIC(10, 2),
+    direct_radiation NUMERIC(10, 2),
+    diffuse_radiation NUMERIC(10, 2),
+    direct_normal_irradiance NUMERIC(10, 2),
+    global_tilted_irradiance NUMERIC(10, 2),
+    terrestrial_radiation NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_anno (
@@ -184,7 +203,13 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_anno (
     surface_pressure NUMERIC(10, 2),
     cloud_cover_low NUMERIC(10, 2),
     cloud_cover_mid NUMERIC(10, 2),
-    cloud_cover_high NUMERIC(10, 2)
+    cloud_cover_high NUMERIC(10, 2),
+    is_day NUMERIC(10, 2),
+    direct_radiation NUMERIC(10, 2),
+    diffuse_radiation NUMERIC(10, 2),
+    direct_normal_irradiance NUMERIC(10, 2),
+    global_tilted_irradiance NUMERIC(10, 2),
+    terrestrial_radiation NUMERIC(10, 2)
 );
 
 CREATE TABLE IF NOT EXISTS HARPA.aggregazione_fascia_oraria (
@@ -213,7 +238,13 @@ CREATE TABLE IF NOT EXISTS HARPA.aggregazione_fascia_oraria (
     cloud_cover_low NUMERIC(10, 2),
     cloud_cover_mid NUMERIC(10, 2),
     cloud_cover_high NUMERIC(10, 2),
-    UNIQUE (data, fascia_oraria)
+    UNIQUE (data, fascia_oraria),
+    is_day NUMERIC(10, 2),
+    direct_radiation NUMERIC(10, 2),
+    diffuse_radiation NUMERIC(10, 2),
+    direct_normal_irradiance NUMERIC(10, 2),
+    global_tilted_irradiance NUMERIC(10, 2),
+    terrestrial_radiation NUMERIC(10, 2)
 );
 
 

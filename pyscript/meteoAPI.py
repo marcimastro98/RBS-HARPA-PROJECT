@@ -4,6 +4,7 @@ import requests_cache
 import pandas as pd
 from retry_requests import retry
 
+
 def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_meteo_data):
     if start_date_meteo is not None and end_date_meteo is not None:
         start_date_meteo = start_date_meteo.strftime('%Y-%m-%d')
@@ -28,7 +29,10 @@ def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_m
         "longitude": 12.486289,
         "start_date": start_future_meteo_data if future else start_date_meteo,
         "end_date": end_date,
-        "hourly": ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation", "rain", "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m"]
+        "hourly": ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation",
+                   "rain", "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover",
+                   "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m", 
+                   "is_day", "direct_radiation", "diffuse_radiation", "direct_normal_irradiance", "global_tilted_irradiance", "terrestrial_radiation"],
     }
     responses = openmeteo.weather_api(url_future if future else url, params=params)
 
@@ -38,7 +42,11 @@ def meteo_data_forecast(start_date_meteo, end_date_meteo, future, start_future_m
     # Process hourly data. The order of variables needs to be the same as requested.
     hourly = response.Hourly()
     hourly_data = {}
-    for i, variable in enumerate(["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation", "rain", "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m"]):
+    for i, variable in enumerate(
+            ["temperature_2m", "relative_humidity_2m", "dew_point_2m", "apparent_temperature", "precipitation", "rain",
+             "snowfall", "snow_depth", "weather_code", "pressure_msl", "surface_pressure", "cloud_cover",
+             "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high", "wind_speed_10m", "wind_direction_10m", 
+             "is_day", "direct_radiation", "diffuse_radiation", "direct_normal_irradiance", "global_tilted_irradiance", "terrestrial_radiation"]):
         hourly_data[variable] = hourly.Variables(i).ValuesAsNumpy()
 
     hourly_data["date"] = pd.date_range(

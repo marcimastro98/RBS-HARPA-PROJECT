@@ -1,5 +1,4 @@
 from decimal import Decimal
-
 import pandas as pd
 import psycopg2
 
@@ -21,10 +20,6 @@ def smartworking_insert(cur, conn, logging, exists):
         # Commit una volta completate tutte le modifiche
         conn.commit()
         logging.info("Transazione completata.")
-        # cur.execute(f""" DO $$ BEGIN IF NOT EXISTS ( SELECT FROM information_schema.columns WHERE table_schema = '{
-        # schema_name}' AND table_name = '{table}' AND column_name = 'is_smartworking' ) THEN ALTER TABLE {
-        # schema_name}.{table} ADD COLUMN is_smartworking TEXT; RAISE NOTICE 'Aggiunta colonna is_smartworking alla
-        # tabella {table}.'; END IF; END $$; """)
         logging.info("Query principale per aggregazione oraria.")
         aggregazione_oraria_query = f"""
                 SELECT
