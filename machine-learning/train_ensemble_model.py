@@ -131,4 +131,7 @@ if __name__ == '__main__':
         shutil.rmtree(model_folder)
 
     os.makedirs(model_folder)
-    dump(ensemble, f'{model_folder}/{datetime.now()}-ensemble_model.joblib')
+    current_datetime = datetime.now()
+    formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
+    file_name = f"{model_folder}/{formatted_datetime}-ensemble_model.joblib"
+    dump(ensemble, file_name)

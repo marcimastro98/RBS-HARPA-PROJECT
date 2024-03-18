@@ -133,7 +133,6 @@ def add_predictio_to_db():
     # Creazione dell'engine di SQLAlchemy
     engine = create_engine(DATABASE_URL, echo=False)
 
-
     df = create_future_predictions_df()
     df.rename(columns={'previsioni': 'kilowatt_edificio_prediction'}, inplace=True)
 
