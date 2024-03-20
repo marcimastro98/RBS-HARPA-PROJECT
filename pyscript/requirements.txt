@@ -1,0 +1,15 @@
+openmeteo_requests==1.1.0
+pandas==2.0.3
+requests_cache==1.1.1
+retry_requests==2.0.0
+#psycopg2==2.9.9
+psycopg2-binary==2.9.9
+python_dotenv==1.0.0
+matplotlib ==3.8.3
+scikit-learn==1.4.1.post1
+sqlalchemy==2.0.28
+meteocalc==1.1.0
+catboost==1.2.3
+lightgbm==4.3.0
+xgboost==2.0.3
+seaborn==0.13.2
