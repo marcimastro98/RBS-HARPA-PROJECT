@@ -1,5 +1,7 @@
 # RBS-HARPA-PROJECT
-- Per startare il progetto è necessario installare Docker sul proprio pc. Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory Docker e lanciare in console il comando 'docker-compose up -d', questo crea i container relativi a pgadmin e postgres, inoltre si occupa di eseguire la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle. Infine, con questo comando, viene lanciato lo script python contenuto nella cartella pyscript (main.py) <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>. E' possibile visualizzare le tabelle del database da pgadmin dopo avere avviato i container docker, collegandosi all'indirizzo http://localhost:5050.
+- Per avviare il progetto è necessario installare Docker sul proprio pc.
+  Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory Docker e lanciare in console il comando 'docker-compose up -d', questo crea i container relativi a pgadmin e postgres, inoltre si occupa di eseguire la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle.
+  Infine, con questo comando, viene lanciato lo script python contenuto nella cartella pyscript (main.py) <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>. E' possibile visualizzare le tabelle del database da pgadmin dopo avere avviato i container docker, collegandosi all'indirizzo http://localhost:5050.
 
 
 #### Dataset:
@@ -61,11 +63,8 @@ pip install --no-cache-dir -r requirements.txt
 python main.py
 ````
 #### Accesso al db da pgadmin
-Una volta collegati a localhost:5050 inserire admin@admin.com e psw:root, tasto destri su Servers -> Register, name: HARPA, Connection -> Host Name: db, Username: user, Password: password
+Una volta collegati a localhost:5050 inserire admin@admin.com e psw:*****, tasto destri su Servers -> Register, name: HARPA, Connection -> Host Name: db, Username: user, Password: *****
 
-
-
-Parte da definire se lasciarla o no 
 #### Esecuzione su Docker
 
 ````
