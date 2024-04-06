@@ -32,9 +32,6 @@ All'interno del database trovete diverse tabelle fra cui:
 - meteoAPI: Codice che serve chiamare le API di Open-Meteo e fornirci e caricare i dati meteo su dataset historical_meteo.csv
 
 
-#### Info Generali:
-
-![img.png](img.png)
 
 #### Dipendenze 
 
