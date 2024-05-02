@@ -43,3 +43,7 @@ Per verificare che il cron job sia stato configurato correttamente, esegui:
 ```bash
 crontab -l
 ```
+
+
+docker-compose up -d --scale predictions=0
+docker-compose up -d predictions

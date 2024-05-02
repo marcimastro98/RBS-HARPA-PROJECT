@@ -4,7 +4,7 @@ services:
   db:
     image: postgres:latest
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # Volume per persistere i dati del DB
+      - postgres_data:/var/lib/postgresql/data
       - ../Dataset:/Dataset
       - ../pyscript:/app
       - ../env:/app/env
@@ -44,6 +44,7 @@ services:
       - ../env:/app/env
       - ../Dataset:/Dataset
       - ../init:/init
+      - ../machine_learning:/machine_learning
     working_dir: /app
     command: /bin/bash -c "pip install --no-cache-dir -r requirements.txt && python main.py"
     environment:
@@ -55,8 +56,28 @@ services:
     networks:
       - internal
 
+  predictions:
+    image: python:3.9
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../pyscript:/app
+      - ../env:/app/env
+      - ../Dataset:/Dataset
+      - ../init:/init
+      - ../machine_learning:/machine_learning
+    working_dir: /app
+    command: /bin/bash -c "pip install --no-cache-dir -r requirements.txt && python predict_future_consumption.py"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=HARPA
+    networks:
+      - internal
+
 volumes:
-  postgres_data:  # Definizione del volume per la persistenza dei dati del database
+  postgres_data:
 
 networks:
   internal:

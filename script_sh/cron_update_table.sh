@@ -3,8 +3,11 @@
 # Percorso al file docker-compose.yml
 DOCKER_COMPOSE_FILE="../Docker/docker-compose.yml"
 
-# Nome del container da monitorare
+# Nome del container principale da monitorare
 CONTAINER_NAME="python-app-1"
+
+# Nome del container per il training del modello
+MODEL_CONTAINER_NAME="predictions"
 
 # Fermare e rimuovere tutti i container attivi
 echo "Fermo e rimuovo tutti i container..."
@@ -17,24 +20,22 @@ docker rm $(docker ps -a -q) 2> /dev/null
 echo "Rimozione di tutti i volumi Docker..."
 docker volume rm $(docker volume ls -q) 2> /dev/null
 
-# Avvia il container
-echo "Avvio del container $CONTAINER_NAME..."
-docker-compose -f "$DOCKER_COMPOSE_FILE" up -d
+# Avvia tutti i container tranne il container per il training
+echo "Avvio di tutti i container tranne $MODEL_CONTAINER_NAME..."
+docker-compose -f "$DOCKER_COMPOSE_FILE" up -d --scale $MODEL_CONTAINER_NAME=0
 
-# Controlla se tutti i container sono avviati e in esecuzione
+# Controlla se tutti i container tranne quello per il training sono avviati e in esecuzione
 echo "Controllo dello stato dei container..."
-CONTAINER_UP="no"
-while [ $CONTAINER_UP != "yes" ]; do
-  # Controlla lo stato di tutti i container, se sono "healthy" o meno.
-  if docker ps | grep -w "$CONTAINER_NAME" &> /dev/null; then
-    CONTAINER_UP="yes"
-  else
-    echo "In attesa che il container sia avviato..."
+while [ $(docker inspect -f '{{.State.Running}}' $MODEL_CONTAINER_NAME) == "false" ]; do
+  if [ $(docker ps -q | wc -l) -eq 0 ]; then
+    echo "In attesa che i container siano tutti avviati..."
     sleep 10
+  else
+    break
   fi
 done
 
-echo "Tutti i container sono attivi. In attesa che $CONTAINER_NAME completi..."
+echo "Tutti i container tranne $MODEL_CONTAINER_NAME sono attivi. In attesa che $CONTAINER_NAME completi..."
 
 # Attesa che il container $CONTAINER_NAME termini l'esecuzione
 while [ $(docker inspect -f '{{.State.Running}}' $CONTAINER_NAME) == "true" ]; do
@@ -42,17 +43,12 @@ while [ $(docker inspect -f '{{.State.Running}}' $CONTAINER_NAME) == "true" ]; d
   sleep 10
 done
 
-# Verificare se il container è terminato senza errori
+# Verificare se il container $CONTAINER_NAME è terminato senza errori
 EXIT_CODE=$(docker inspect -f '{{.State.ExitCode}}' $CONTAINER_NAME)
 if [ $EXIT_CODE -eq 0 ]; then
   echo "Il container $CONTAINER_NAME è terminato correttamente."
-  # Attesa di 30 minuti
-  echo "In attesa 30 minuti prima di eseguire lo script Python..."
-  sleep 1800  # Attesa di 30 minuti
-
-  # Eseguire lo script Python
-  echo "Esecuzione dello script train_ensemble_model.py..."
-  python3 ../machine_learning/train_ensemble_model.py
+  echo "Avvio del container $MODEL_CONTAINER_NAME per il training del modello..."
+  docker-compose -f "$DOCKER_COMPOSE_FILE" up -d $MODEL_CONTAINER_NAME
 else
   echo "Il container $CONTAINER_NAME è terminato con errore: $EXIT_CODE"
 fi
