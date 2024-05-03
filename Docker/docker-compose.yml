@@ -40,19 +40,20 @@ services:
       - db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../pyscript:/app
+      - ../pyscript:/app/pyscript
       - ../env:/app/env
-      - ../Dataset:/Dataset
-      - ../init:/init
-      - ../machine_learning:/machine_learning
+      - ../Dataset:/app/Dataset
+      - ../init:/app/init
+      - ../machine_learning:/app/machine_learning
     working_dir: /app
-    command: /bin/bash -c "pip install --no-cache-dir -r requirements.txt && python main.py"
+    command: /bin/bash -c "cd pyscript && pip install --no-cache-dir -r requirements.txt && python main.py"
     environment:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=HARPA
+      - PYTHONPATH=/app
     networks:
       - internal
 
@@ -60,19 +61,20 @@ services:
     image: python:3.9
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../pyscript:/app
+      - ../pyscript:/app/pyscript
       - ../env:/app/env
-      - ../Dataset:/Dataset
-      - ../init:/init
-      - ../machine_learning:/machine_learning
+      - ../Dataset:/app/Dataset
+      - ../init:/app/init
+      - ../machine_learning:/app/machine_learning
     working_dir: /app
-    command: /bin/bash -c "pip install --no-cache-dir -r requirements.txt && python predict_future_consumption.py"
+    command: /bin/bash -c "cd pyscript && pip install --no-cache-dir -r requirements.txt && python predict_future_consumption.py"
     environment:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=HARPA
+      - PYTHONPATH=/app
     networks:
       - internal
 

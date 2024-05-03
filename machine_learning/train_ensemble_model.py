@@ -17,39 +17,39 @@ def calculate_rmse(y_true, y_pred):
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
 
-def plot_feature_importances(model, feature_names):
-    if hasattr(model, 'feature_importances_'):
-        plt.figure(figsize=(12, 8))
-        importances = model.feature_importances_
-        indices = np.argsort(importances)
-        plt.title(f'Feature Importances - {model.__class__.__name__}')
-        plt.barh(range(len(indices)), importances[indices], color='b', align='center')
-        plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
-        plt.xlabel('Relative Importance')
-        plt.show()
+# def plot_feature_importances(model, feature_names):
+#     if hasattr(model, 'feature_importances_'):
+#         plt.figure(figsize=(12, 8))
+#         importances = model.feature_importances_
+#         indices = np.argsort(importances)
+#         plt.title(f'Feature Importances - {model.__class__.__name__}')
+#         plt.barh(range(len(indices)), importances[indices], color='b', align='center')
+#         plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
+#         plt.xlabel('Relative Importance')
+#         plt.show()
 
 
-def analyze_errors(y_true, y_pred, name):
-    errors = y_pred - y_true
-    plt.figure(figsize=(14, 7))
-    plt.hist(errors, bins=50, color='red', alpha=0.7)
-    plt.xlabel('Errore di predizione')
-    plt.ylabel('Frequenza')
-    plt.title(f'Distribuzione degli errori di predizione - {name}')
-    plt.show()
+# def analyze_errors(y_true, y_pred, name):
+#     errors = y_pred - y_true
+#     plt.figure(figsize=(14, 7))
+#     plt.hist(errors, bins=50, color='red', alpha=0.7)
+#     plt.xlabel('Errore di predizione')
+#     plt.ylabel('Frequenza')
+#     plt.title(f'Distribuzione degli errori di predizione - {name}')
+#     plt.show()
 
 
-def plot_predictions(y_true, y_pred, title):
-    plt.figure(figsize=(10, 6))
-    plt.scatter(y_true, y_pred, alpha=0.5, color='blue', label='Previsioni')
-    plt.title(title)
-    plt.xlabel('Valori Reali')
-    plt.ylabel('Previsioni')
-    max_val = max(y_true.max(), y_pred.max())
-    min_val = min(y_true.min(), y_pred.min())
-    plt.plot([min_val, max_val], [min_val, max_val], color='red', lw=2, linestyle='--', label='Linea di Identità')
-    plt.legend()
-    plt.show()
+# def plot_predictions(y_true, y_pred, title):
+#     plt.figure(figsize=(10, 6))
+#     plt.scatter(y_true, y_pred, alpha=0.5, color='blue', label='Previsioni')
+#     plt.title(title)
+#     plt.xlabel('Valori Reali')
+#     plt.ylabel('Previsioni')
+#     max_val = max(y_true.max(), y_pred.max())
+#     min_val = min(y_true.min(), y_pred.min())
+#     plt.plot([min_val, max_val], [min_val, max_val], color='red', lw=2, linestyle='--', label='Linea di Identità')
+#     plt.legend()
+#     plt.show()
 
 
 def optimize_hyperparameters(model, param_grid, X_train, Y_train):
@@ -59,13 +59,13 @@ def optimize_hyperparameters(model, param_grid, X_train, Y_train):
     return grid_search.best_estimator_
 
 
-def check_target_distribution(y):
-    plt.figure(figsize=(10, 6))
-    sns.histplot(y, kde=True)
-    plt.title('Distribuzione Target (kilowatt_edificio)')
-    plt.xlabel('kilowatt_edificio')
-    plt.ylabel('Frequenza')
-    plt.show()
+# def check_target_distribution(y):
+#     plt.figure(figsize=(10, 6))
+#     sns.histplot(y, kde=True)
+#     plt.title('Distribuzione Target (kilowatt_edificio)')
+#     plt.xlabel('kilowatt_edificio')
+#     plt.ylabel('Frequenza')
+#     plt.show()
 
 
 # Funzione per addestrare e valutare i modelli
@@ -105,10 +105,10 @@ def train_and_evaluate(X, y):
         print(f"{estimator_name} model: RMSE: {rmse}, MAE: {mae}, R2: {r2}")
 
         # Visualizzazione dei grafici per ciascun modello
-        plot_predictions(Y_test, predictions, f'Previsioni vs Valori Reali - {estimator_name}')
-        if hasattr(model, 'feature_importances_'):
-            plot_feature_importances(model, X_train.columns.tolist())
-        analyze_errors(Y_test, predictions, estimator_name)
+        # plot_predictions(Y_test, predictions, f'Previsioni vs Valori Reali - {estimator_name}')
+        # if hasattr(model, 'feature_importances_'):
+        #     plot_feature_importances(model, X_train.columns.tolist())
+        # analyze_errors(Y_test, predictions, estimator_name)
 
     print("Training ensemble model...")
     ensemble_stacking.fit(X_train, Y_train)
@@ -121,9 +121,9 @@ def train_and_evaluate(X, y):
     return ensemble_stacking
 
 
-if __name__ == '__main__':
+def train_and_save():
     X, Y = prepare_data()
-    check_target_distribution(Y)
+    # check_target_distribution(Y)
     ensemble = train_and_evaluate(X, Y)
     model_folder = './model/'
 
@@ -134,4 +134,5 @@ if __name__ == '__main__':
     current_datetime = datetime.now()
     formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H-%M-%S")
     file_name = f"{model_folder}/{formatted_datetime}-ensemble_model.joblib"
+    print(f"---SALVATAGGIO ${file_name}---")
     dump(ensemble, file_name)

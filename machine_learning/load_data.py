@@ -1,11 +1,9 @@
 import os
-
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from meteocalc import heat_index, wind_chill
 from sklearn.preprocessing import StandardScaler
-from sqlalchemy import create_engine
 
 
 def fetch_data_to_dataframe():

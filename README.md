@@ -1,8 +1,8 @@
 # RBS-HARPA-PROJECT
 - Per avviare il progetto è necessario installare Docker sul proprio pc.
-  Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory Docker e lanciare in console il comando 'docker-compose up -d', questo crea i container relativi a pgadmin e postgres, inoltre si occupa di eseguire la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle.
+  Una volta scaricato il progetto e scaricato docker posizionarsi all'interno della directory Docker e lanciare in console il comando 'docker-compose up -d --scale predictions=0', questo crea i container relativi a pgadmin e postgres, inoltre si occupa di eseguire la query(che si trova nella cartella .init/init-db.sql) di creazione del database importando i csv contenuti all'interno della cartella Dataset, quindi, crea le tabelle.
   Infine, con questo comando, viene lanciato lo script python contenuto nella cartella pyscript (main.py) <b>IMPORTANTE mettere i dataset da analizzare dentro la cartella 'Dataset'</b>. E' possibile visualizzare le tabelle del database da pgadmin dopo avere avviato i container docker, collegandosi all'indirizzo http://localhost:5050.
-
+  Una volta che il cntainer python-app ha finito la sua esecuzione, è possibile prevedere i futuri consumi con il comando 'docker-compose up -d predictions ', una volta che il container ha terminato la sua esecuzione, collegarsi al database e visualizzare la tabella relativa ai consumi futuri.
 
 #### Dataset:
 

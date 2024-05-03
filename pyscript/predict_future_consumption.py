@@ -48,7 +48,7 @@ def create_future_predictions_df():
     meteo_data_future_forecast['fascia_oraria'] = meteo_data_future_forecast['date'].dt.hour.apply(assign_time_slot)
     meteo_data_future_forecast['giorno_settimana'] = meteo_data_future_forecast['date'].dt.dayofweek
 
-    model_files = glob.glob('../machine_learning/model/*ensemble_model.joblib')
+    model_files = glob.glob('./model/*ensemble_model.joblib')
     ensemble = load(model_files[0])
 
     correct_column_order = ['rain', 'cloud_cover', 'fascia_oraria',
